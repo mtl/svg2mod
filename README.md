@@ -1,5 +1,5 @@
 # svg2mod
-This is a small program to convert Inkscape SVG drawings to KiCad footprint module files.  It uses [cjlano's python SVG parser and drawing module](https://github.com/cjlano/svg) to interpret drawings and approximate curves using straight line segments.  Module files can be written in KiCad's legacy or s-expression (i.e., pretty) formats.  Horizontally mirrored modules are automatically generated for use on the back of a PCB. 
+This is a small program to convert Inkscape SVG drawings to KiCad footprint module files.  It uses [cjlano's python SVG parser and drawing module](https://github.com/cjlano/svg) to interpret drawings and approximate curves using straight line segments.  Module files can be written in KiCad's legacy or s-expression (i.e., pretty) formats.  Horizontally mirrored modules are automatically generated for use on the back of a 2-layer PCB.
 
 ## Usage
 ```
@@ -33,11 +33,12 @@ svg2mod expects images saved in the uncompressed Inkscape SVG (not "plain SVG") 
  * Drawings should be to scale (1 mm in Inscape will be 1 mm in KiCad).
  * Paths are supported.
    * A path may have an outline and a fill.  (Colors will be ignored.)
-   * A path may have a hole, defined by another path.  Sometimes this will render propery in KiCad, but sometimes not.
-   * Paths with multiple holes may not work at all.
+   * A path may have a hole, defined by an interior segment within the path (see included examples).  Sometimes this will render propery in KiCad, but sometimes not.
+   * Paths with multiple holes or filled areas within holes may not work at all.
  * Groups may be used.
  * Layers must be used to indicate the mapping of drawing elements to KiCad layers.
    * Layers must be named according to the rules below.
+   * Drawing elements will be mapped to front layers, and mirrored elements will be mapped to back layers in a separate module (see --front-only option).
  * Other types of elements such as rect, arc, and circle are not supported.
    * Use Inkscape's "Path->Object To Path" and "Path->Stroke To Path" menu options to convert these elements into paths that will work.
 
