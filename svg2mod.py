@@ -98,21 +98,21 @@ class Svg2Mod( object ):
 
     layer_map = {
         #'name' : [ front, back, pretty-name ],
-        'copper' : [ 15, 0, "Cu" ],
-        'solder mask' : [ 23, 22, "Mask" ],
-        'silkscreen' : [ 21, 20, "SilkS" ],
-        'glue' : [ 17, 16, "Adhes" ], # or Paste?
-        'edge cuts' : [ 28, 28, "??" ],
-        'comments' : [ 25, 25, "??" ],
+        'cu' : [ 15, 0, "Cu" ],
+        'adhes' : [ 17, 16, "Adhes" ],
+        'paste' : [ 19, 18, "Paste" ],
+        'silks' : [ 21, 20, "SilkS" ],
+        'mask' : [ 23, 22, "Mask" ],
+        'dwgs.user' : [ 24, 24, "??" ],
+        'cmts.user' : [ 25, 25, "??" ],
+        'eco1.user' : [ 26, 26, "??" ],
+        'eco2.user' : [ 27, 27, "??" ],
+        'edge.cuts' : [ 28, 28, "??" ],
+        'fab' : [ -1, -1, "Fab" ],
+        'crtyd' : [ -1, -1, "CrtYd" ],
     }
 
     # pcbnew/pcb_parser.cpp (pretty format):
-    #m_layerMasks[ "*.Cu" ]      = LSET::AllCuMask();
-    #m_layerMasks[ "F&B.Cu" ]    = LSET( 2, F_Cu, B_Cu );
-    #m_layerMasks[ "*.Adhes" ]   = LSET( 2, B_Adhes, F_Adhes );
-    #m_layerMasks[ "*.Paste" ]   = LSET( 2, B_Paste, F_Paste );
-    #m_layerMasks[ "*.Mask" ]    = LSET( 2, B_Mask,  F_Mask );
-    #m_layerMasks[ "*.SilkS" ]   = LSET( 2, B_SilkS, F_SilkS );
     #m_layerMasks[ "*.Fab" ]     = LSET( 2, B_Fab,   F_Fab );
     #m_layerMasks[ "*.CrtYd" ]   = LSET( 2, B_CrtYd, F_CrtYd );
 
