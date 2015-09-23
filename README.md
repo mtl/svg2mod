@@ -30,7 +30,7 @@ optional arguments:
 ## SVG Files
 
 svg2mod expects images saved in the uncompressed Inkscape SVG (not "plain SVG") format.
- * Drawings should be to scale (1 mm in Inscape will be 1 mm in KiCad).
+ * Drawings should be to scale (1 mm in Inscape will be 1 mm in KiCad).  See the --factor option to resize the resulting module(s) up or down.
  * Paths are supported.
    * A path may have an outline and a fill.  (Colors will be ignored.)
    * A path may have a hole, defined by an interior segment within the path (see included examples).  Sometimes this will render propery in KiCad, but sometimes not.
