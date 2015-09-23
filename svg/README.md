@@ -2,7 +2,7 @@ SVG parser library
 ==================
 
 This is a SVG parser library written in Python.
-(see here)[https://github.com/cjlano/svg]
+([see here](https://github.com/cjlano/svg]))
 
 Capabilities:
  - Parse SVG XML
