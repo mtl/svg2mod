@@ -60,3 +60,5 @@ Layers must be named (case-insensitive) according to the following rules:
 | Edge.Cuts           | Edge.Cuts        | Yes          | No           |
 | Fab                 | Fab              | No           | Yes          |
 | CrtYd               | CrtYd            | No           | Yes          |
+
+Note: If you have a layer "Cu", all of its sub-layers will be treated as "Cu" regardless of their names.
