@@ -3,17 +3,17 @@ This is a small program to convert Inkscape SVG drawings to KiCad footprint modu
 
 ## Usage
 ```
-usage: svg2mod.py [-h] -i INPUT-FILE-NAME [-o OUTPUT-FILE-NAME] [--name NAME]
-                  [--value VALUE] [-f FACTOR] [-p PRECISION] [--front-only]
-                  [--format FORMAT] [--units UNITS]
+usage: svg2mod.py [-h] -i FILENAME [-o FILENAME] [--name NAME] [--value VALUE]
+                  [-f FACTOR] [-p PRECISION] [--front-only] [--format FORMAT]
+                  [--units UNITS]
 
 svg2mod.
 
 optional arguments:
   -h, --help            show this help message and exit
-  -i INPUT-FILE-NAME, --input-file INPUT-FILE-NAME
+  -i FILENAME, --input-file FILENAME
                         name of the SVG file
-  -o OUTPUT-FILE-NAME, --output-file OUTPUT-FILE-NAME
+  -o FILENAME, --output-file FILENAME
                         name of the module file
   --name NAME, --module-name NAME
                         base name of the module

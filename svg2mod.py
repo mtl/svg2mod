@@ -610,7 +610,7 @@ def get_arguments():
         '-i', '--input-file',
         type = str,
         dest = 'input_file_name',
-        metavar = 'INPUT-FILE-NAME',
+        metavar = 'FILENAME',
         help = "name of the SVG file",
         required = True,
     )
@@ -619,7 +619,7 @@ def get_arguments():
         '-o', '--output-file',
         type = str,
         dest = 'output_file_name',
-        metavar = 'OUTPUT-FILE-NAME',
+        metavar = 'FILENAME',
         help = "name of the module file",
     )
 
