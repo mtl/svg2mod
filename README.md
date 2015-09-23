@@ -7,8 +7,6 @@ usage: svg2mod.py [-h] -i FILENAME [-o FILENAME] [--name NAME] [--value VALUE]
                   [-f FACTOR] [-p PRECISION] [--front-only] [--format FORMAT]
                   [--units UNITS]
 
-svg2mod.
-
 optional arguments:
   -h, --help            show this help message and exit
   -i FILENAME, --input-file FILENAME
@@ -53,12 +51,12 @@ Layers must be named (case-insensitive) according to the following rules:
 | Paste               | F.Paste, B.Paste | Yes          | Yes          |
 | SilkS               | F.SilkS, B.SilkS | Yes          | Yes          |
 | Mask                | F.Mask, B.Mask   | Yes          | Yes          |
-| Dwgs.User           | Dwgs.User        | Yes          | No           |
-| Cmts.User           | Cmts.User        | Yes          | No           |
-| Eco1.User           | Eco1.User        | Yes          | No           |
-| Eco2.User           | Eco2.User        | Yes          | No           |
-| Edge.Cuts           | Edge.Cuts        | Yes          | No           |
-| Fab                 | Fab              | No           | Yes          |
-| CrtYd               | CrtYd            | No           | Yes          |
+| Dwgs.User           | Dwgs.User        | Yes          | --           |
+| Cmts.User           | Cmts.User        | Yes          | --           |
+| Eco1.User           | Eco1.User        | Yes          | --           |
+| Eco2.User           | Eco2.User        | Yes          | --           |
+| Edge.Cuts           | Edge.Cuts        | Yes          | --           |
+| Fab                 | Fab              | --           | Yes          |
+| CrtYd               | CrtYd            | --           | Yes          |
 
 Note: If you have a layer "Cu", all of its sub-layers will be treated as "Cu" regardless of their names.
