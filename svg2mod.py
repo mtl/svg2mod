@@ -98,23 +98,19 @@ class Svg2Mod( object ):
 
     layer_map = {
         #'name' : [ front, back, pretty-name ],
-        'cu' : [ 15, 0, "Cu" ],
-        'adhes' : [ 17, 16, "Adhes" ],
-        'paste' : [ 19, 18, "Paste" ],
-        'silks' : [ 21, 20, "SilkS" ],
-        'mask' : [ 23, 22, "Mask" ],
-        'dwgs.user' : [ 24, 24, "??" ],
-        'cmts.user' : [ 25, 25, "??" ],
-        'eco1.user' : [ 26, 26, "??" ],
-        'eco2.user' : [ 27, 27, "??" ],
-        'edge.cuts' : [ 28, 28, "??" ],
-        'fab' : [ -1, -1, "Fab" ],
-        'crtyd' : [ -1, -1, "CrtYd" ],
+        'Cu' : [ 15, 0, "Cu" ],
+        'Adhes' : [ 17, 16, "Adhes" ],
+        'Paste' : [ 19, 18, "Paste" ],
+        'SilkS' : [ 21, 20, "SilkS" ],
+        'Mask' : [ 23, 22, "Mask" ],
+        'Dwgs.User' : [ 24, 24, "??" ],
+        'Cmts.User' : [ 25, 25, "??" ],
+        'Eco1.User' : [ 26, 26, "??" ],
+        'Eco2.User' : [ 27, 27, "??" ],
+        'Edge.Cuts' : [ 28, 28, "??" ],
+        'Fab' : [ -1, -1, "Fab" ],
+        'CrtYd' : [ -1, -1, "CrtYd" ],
     }
-
-    # pcbnew/pcb_parser.cpp (pretty format):
-    #m_layerMasks[ "*.Fab" ]     = LSET( 2, B_Fab,   F_Fab );
-    #m_layerMasks[ "*.CrtYd" ]   = LSET( 2, B_CrtYd, F_CrtYd );
 
 
     #------------------------------------------------------------------------
@@ -675,7 +671,7 @@ def get_arguments():
         metavar = 'FORMAT',
         choices = [ 'legacy', 'pretty' ],
         help = "output module file format (legacy|pretty)",
-        default = 'pretty',
+        default = 'legacy',
     )
 
     parser.add_argument(
