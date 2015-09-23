@@ -38,7 +38,7 @@ svg2mod expects images saved in the uncompressed Inkscape SVG (not "plain SVG") 
  * Groups may be used.
  * Layers must be used to indicate the mapping of drawing elements to KiCad layers.
    * Layers must be named according to the rules below.
-   * Drawing elements will be mapped to front layers, and mirrored elements will be mapped to back layers in a separate module (see --front-only option).
+   * Drawing elements will be mapped to front layers by default.  Mirrored images of these elements can be automatically generated and mapped to back layers in a separate module (see --front-only option).
  * Other types of elements such as rect, arc, and circle are not supported.
    * Use Inkscape's "Path->Object To Path" and "Path->Stroke To Path" menu options to convert these elements into paths that will work.
 
