@@ -15,7 +15,6 @@ import re
 import sys
 
 # To-do:
-# auto horizontal asymmetry detection
 # support lines, arcs, rects, circles, etc.
 # Mark center with a circle or a group or something...
 #    ...And adjust text labels accordingly
@@ -27,10 +26,6 @@ import sys
 def main():
 
     args, parser = get_arguments()
-
-    if args.input_file_name is None:
-        parser.print_help()
-        sys.exit( 0 )
 
     if args.format == 'pretty' and args.units == 'decimil':
         print( "Error: decimil units only allowed with legacy output type" )
@@ -615,41 +610,24 @@ def get_arguments():
         '-i', '--input-file',
         type = str,
         dest = 'input_file_name',
-        metavar = 'input-file-name',
+        metavar = 'INPUT-FILE-NAME',
         help = "name of the SVG file",
+        required = True,
     )
 
     parser.add_argument(
         '-o', '--output-file',
         type = str,
         dest = 'output_file_name',
-        metavar = 'output-file-name',
+        metavar = 'OUTPUT-FILE-NAME',
         help = "name of the module file",
     )
 
     parser.add_argument(
-        '-f', '--factor',
-        type = float,
-        dest = 'scale_factor',
-        metavar = 'scale-factor',
-        help = "scale paths by this factor",
-        default = 1.0,
-    )
-
-    parser.add_argument(
-        '-p', '--precision',
-        type = int,
-        dest = 'precision',
-        metavar = 'precision',
-        help = "smoothness for approximating curves with line segments (int)",
-        default = 10,
-    )
-
-    parser.add_argument(
-        '-n', '--name', '--module-name',
+        '--name', '--module-name',
         type = str,
         dest = 'module_name',
-        metavar = 'module-name',
+        metavar = 'NAME',
         help = "base name of the module",
         default = "svg2mod",
     )
@@ -658,9 +636,27 @@ def get_arguments():
         '--value', '--module-value',
         type = str,
         dest = 'module_value',
-        metavar = 'module-value',
+        metavar = 'VALUE',
         help = "value of the module",
         default = "G***",
+    )
+
+    parser.add_argument(
+        '-f', '--factor',
+        type = float,
+        dest = 'scale_factor',
+        metavar = 'FACTOR',
+        help = "scale paths by this factor",
+        default = 1.0,
+    )
+
+    parser.add_argument(
+        '-p', '--precision',
+        type = int,
+        dest = 'precision',
+        metavar = 'PRECISION',
+        help = "smoothness for approximating curves with line segments (int)",
+        default = 10,
     )
 
     parser.add_argument(
@@ -676,9 +672,9 @@ def get_arguments():
         '--format',
         type = str,
         dest = 'format',
-        metavar = 'format',
+        metavar = 'FORMAT',
         choices = [ 'legacy', 'pretty' ],
-        help = "output module file format",
+        help = "output module file format (legacy|pretty)",
         default = 'pretty',
     )
 
@@ -686,9 +682,9 @@ def get_arguments():
         '--units',
         type = str,
         dest = 'units',
-        metavar = 'units',
+        metavar = 'UNITS',
         choices = [ 'decimil', 'mm' ],
-        help = "Output units (if format is legacy)",
+        help = "Output units, if format is legacy (decimil|mm)",
         default = 'mm',
     )
 

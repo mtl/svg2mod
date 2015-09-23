@@ -3,29 +3,28 @@ This is a small program to convert Inkscape SVG drawings to KiCad footprint modu
 
 ## Usage
 ```
-usage: svg2mod.py [-h] [-i input-file-name] [-o output-file-name]
-                  [-f scale-factor] [-p precision] [-n module-name]
-                  [--value module-value] [--front-only] [--format format]
-                  [--units units]
+usage: svg2mod.py [-h] -i INPUT-FILE-NAME [-o OUTPUT-FILE-NAME] [--name NAME]
+                  [--value VALUE] [-f FACTOR] [-p PRECISION] [--front-only]
+                  [--format FORMAT] [--units UNITS]
 
 svg2mod.
 
 optional arguments:
   -h, --help            show this help message and exit
-  -i input-file-name, --input-file input-file-name
+  -i INPUT-FILE-NAME, --input-file INPUT-FILE-NAME
                         name of the SVG file
-  -o output-file-name, --output-file output-file-name
+  -o OUTPUT-FILE-NAME, --output-file OUTPUT-FILE-NAME
                         name of the module file
-  -f scale-factor, --factor scale-factor
+  --name NAME, --module-name NAME
+                        base name of the module
+  --value VALUE, --module-value VALUE
+                        value of the module
+  -f FACTOR, --factor FACTOR
                         scale paths by this factor
-  -p precision, --precision precision
+  -p PRECISION, --precision PRECISION
                         smoothness for approximating curves with line segments
                         (int)
-  -n module-name, --name module-name, --module-name module-name
-                        base name of the module
-  --value module-value, --module-value module-value
-                        value of the module
   --front-only          omit output of back module
-  --format format       output module file format
-  --units units         Output units (if format is legacy)
-  ```
+  --format FORMAT       output module file format (legacy|pretty)
+  --units UNITS         Output units, if format is legacy (decimil|mm)
+```
