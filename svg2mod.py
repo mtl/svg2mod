@@ -128,7 +128,7 @@ class Svg2Mod( object ):
 
         fill = True
         stroke = True
-        stroke_width = cls._convert_decimil_to_mm( 1 )
+        stroke_width = 0.0
 
         for property in item.style.split( ";" ):
 
@@ -144,6 +144,12 @@ class Svg2Mod( object ):
 
             elif name == "stroke-width":
                 stroke_width = float( value ) * 25.4 / 90.0
+
+        if not stroke:
+            stroke_width = 0.0
+        elif stroke_width is None:
+            # Give a default stroke width?
+            stroke_width = cls._convert_decimil_to_mm( 1 )
 
         return fill, stroke, stroke_width
 
@@ -258,17 +264,18 @@ class Svg2Mod( object ):
 
                 fill, stroke, stroke_width = self._get_fill_stroke( item )
 
-                if fill:
-                    self._write_polygon_filled(
-                        config, segments, flip, layer
+                if not config.use_mm:
+                    stroke_width = self._convert_mm_to_decimil(
+                        stroke_width
                     )
 
-                if stroke:
+                if fill:
+                    self._write_polygon_filled(
+                        config, segments, flip, layer,
+                        stroke_width # For pretty format
+                    )
 
-                    if not config.use_mm:
-                        stroke_width = self._convert_mm_to_decimil(
-                            stroke_width
-                        )
+                if not config.pretty and stroke:
 
                     self._write_polygon_outline(
                         config, segments, stroke_width, flip, layer
@@ -369,7 +376,14 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
 
     #------------------------------------------------------------------------
 
-    def _write_polygon_filled( self, config, segments, flip, layer ):
+    def _write_polygon_filled(
+        self,
+        config,
+        segments,
+        flip,
+        layer,
+        stroke_width = 0.0
+    ):
 
         print( "    Writing filled polygon with {} segments".format( len( segments ) ) )
 
@@ -444,10 +458,9 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
             ) )
 
         if config.pretty:
-            # What should width be for a filled polygon?
             config.output_file.write(
                 "    )\n    (layer {})\n    (width {})\n  )".format(
-                    layer, self._convert_decimil_to_mm( 1 )
+                    layer, stroke_width
                 )
             )
 
@@ -587,7 +600,6 @@ $EndINDEX
     self.input_file_name,
 )
             )
-
 
 
     #------------------------------------------------------------------------
