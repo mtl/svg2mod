@@ -31,7 +31,7 @@ def main():
         print( "Error: decimil units only allowed with legacy output type" )
         sys.exit( -1 )
 
-    svg2mod = Svg2Mod(
+    imported = Svg2ModImport(
         args.input_file_name,
         args.module_name,
         args.module_value
@@ -47,48 +47,37 @@ def main():
 
     use_mm = args.units == 'mm'
 
-    svg2mod.write(
+    exported = Svg2ModExport(
+        imported,
         args.output_file_name,
         args.scale_factor,
         args.precision,
         pretty = pretty,
-        include_reverse = not args.front_only,
         use_mm = use_mm,
+        include_reverse = not args.front_only,
     )
+    exported.write()
 
 
 #----------------------------------------------------------------------------
 
-class Svg2ModWriteConfig( object ):
+class Svg2ModImport( object ):
 
-    def __init__(
-        self,
-        output_file_name,
-        scale_factor,
-        precision,
-        pretty,
-        include_reverse,
-        use_mm,
-    ):
-        if pretty or use_mm:
-            # 25.4 mm/in; Inkscape uses 90 DPI:
-            scale_factor *= 25.4 / 90.0
-            use_mm = True
-        else:
-            # PCBNew uses "decimil" (10K DPI); Inkscape uses 90 DPI:
-            scale_factor *= 10000.0 / 90.0
+    #------------------------------------------------------------------------
 
-        self.output_file_name = output_file_name
-        self.scale_factor = scale_factor
-        self.precision = precision
-        self.include_reverse = include_reverse
-        self.pretty = pretty
-        self.use_mm = use_mm
+    def __init__( self, file_name, module_name, module_value ):
+
+        self.file_name = file_name
+        self.module_name = module_name
+        self.module_value = module_value
+
+        print( "Parsing SVG..." )
+        self.svg = svg.parse( file_name )
 
 
 #----------------------------------------------------------------------------
 
-class Svg2Mod( object ):
+class Svg2ModExport( object ):
 
     layer_map = {
         #'name' : [ front, back, pretty-name ],
@@ -97,13 +86,13 @@ class Svg2Mod( object ):
         'Paste' : [ 19, 18, "Paste" ],
         'SilkS' : [ 21, 20, "SilkS" ],
         'Mask' : [ 23, 22, "Mask" ],
-        'Dwgs.User' : [ 24, 24, "??" ],
-        'Cmts.User' : [ 25, 25, "??" ],
-        'Eco1.User' : [ 26, 26, "??" ],
-        'Eco2.User' : [ 27, 27, "??" ],
-        'Edge.Cuts' : [ 28, 28, "??" ],
-        'Fab' : [ -1, -1, "Fab" ],
-        'CrtYd' : [ -1, -1, "CrtYd" ],
+        'Dwgs\\.User' : [ 24, 24, None ],
+        'Cmts\\.User' : [ 25, 25, None ],
+        'Eco1\\.User' : [ 26, 26, None ],
+        'Eco2\\.User' : [ 27, 27, None ],
+        'Edge\\.Cuts' : [ 28, 28, None ],
+        'CrtYd' : [ None, None, "CrtYd" ],
+        'Fab' : [ None, None, "Fab" ],
     }
 
 
@@ -156,34 +145,38 @@ class Svg2Mod( object ):
 
     #------------------------------------------------------------------------
 
-    def __init__( self, input_file_name, module_name, module_value, pretty = True ):
+    def __init__(
+        self,
+        svg2mod_import,
+        file_name,
+        scale_factor = 1.0,
+        precision = 20,
+        pretty = True,
+        use_mm = True,
+        include_reverse = True,
+    ):
+        if pretty or use_mm:
+            # 25.4 mm/in; Inkscape uses 90 DPI:
+            scale_factor *= 25.4 / 90.0
+            use_mm = True
+        else:
+            # PCBNew uses "decimil" (10K DPI); Inkscape uses 90 DPI:
+            scale_factor *= 10000.0 / 90.0
 
-        self.input_file_name = input_file_name
-        self.module_name = module_name
-        self.module_value = module_value
+        self.imported = svg2mod_import
+        self.file_name = file_name
+        self.scale_factor = scale_factor
+        self.precision = precision
         self.pretty = pretty
-
-        self.layers = {}
-        for name in self.layer_map.iterkeys():
-            self.layers[ name ] = None
-
-        print( "Parsing SVG..." )
-        self.svg = svg.parse( input_file_name )
-
-        #print( svg2mod.svg.json() )
-        #print( "Pruning..." )
-        self.prune()
-        #print( svg2mod.svg.json() )
-
-        # Must come after pruning:
-        translation = self._calculate_translation()
+        self.use_mm = use_mm
+        self.include_reverse = include_reverse
 
 
     #------------------------------------------------------------------------
 
     def _calculate_translation( self ):
 
-        min_point, max_point = self.svg.bbox()
+        min_point, max_point = self.imported.svg.bbox()
 
         # Center the drawing:
         adjust_x = min_point.x + ( max_point.x - min_point.x ) / 2.0
@@ -199,12 +192,12 @@ class Svg2Mod( object ):
 
     # Apply all transformations and rounding, then remove duplicate
     # consecutive points along the path.
-    def _collapse_points( self, config, points, flip ):
+    def _collapse_points( self, points, flip ):
 
         new_points = []
         for point in points:
 
-            point = self._transform_point( config, point, flip )
+            point = self._transform_point( point, flip )
 
             if (
                 len( new_points ) < 1 or
@@ -218,30 +211,63 @@ class Svg2Mod( object ):
 
     #------------------------------------------------------------------------
 
-    def _get_module_name( self, config, front = None ):
+    def _get_module_name( self, front = None ):
 
-        if not config.pretty and config.include_reverse:
+        if not self.pretty and self.include_reverse:
             if front:
-                return self.module_name + "-Front"
+                return self.imported.module_name + "-Front"
             else:
-                return self.module_name + "-Back"
+                return self.imported.module_name + "-Back"
 
-        return self.module_name
+        return self.imported.module_name
 
 
     #------------------------------------------------------------------------
 
-    def _transform_point( self, config, point, flip ):
+    # Find and keep only the layers of interest.
+    def _prune( self, items = None ):
+
+        if items is None:
+
+            self.layers = {}
+            for name, layer_info in self.layer_map.iteritems():
+                if (
+                    ( self.pretty and layer_info[ 2 ] is not None ) or
+                    ( not self.pretty and layer_info[ 0 ] is not None )
+                ):
+                    self.layers[ name ] = None
+
+            items = self.imported.svg.items
+            self.imported.svg.items = []
+
+        for item in items:
+
+            if not isinstance( item, svg.Group ):
+                continue
+
+            for name in self.layers.iterkeys():
+                if re.search( name, item.name, re.I ):
+                    print( "Found layer: {}".format( item.name ) )
+                    self.imported.svg.items.append( item )
+                    self.layers[ name ] = item
+                    break
+            else:
+                self._prune( item.items )
+
+
+    #------------------------------------------------------------------------
+
+    def _transform_point( self, point, flip ):
 
         transformed_point = svg.Point(
-            ( point.x + self.translation.x ) * config.scale_factor,
-            ( point.y + self.translation.y ) * config.scale_factor,
+            ( point.x + self.translation.x ) * self.scale_factor,
+            ( point.y + self.translation.y ) * self.scale_factor,
         )
 
         if flip:
             transformed_point.x *= -1
 
-        if not config.use_mm:
+        if not self.use_mm:
             transformed_point.x = int( round( transformed_point.x ) )
             transformed_point.y = int( round( transformed_point.y ) )
 
@@ -250,35 +276,35 @@ class Svg2Mod( object ):
 
     #------------------------------------------------------------------------
 
-    def _write_items( self, config, items, flip, layer ):
+    def _write_items( self, items, flip, layer ):
 
         for item in items:
 
             if isinstance( item, svg.Group ):
-                self._write_items( config, item.items, flip, layer )
+                self._write_items( item.items, flip, layer )
                 continue
 
             elif isinstance( item, svg.Path ):
 
-                segments = item.segments( precision = config.precision )
+                segments = item.segments( precision = self.precision )
 
                 fill, stroke, stroke_width = self._get_fill_stroke( item )
 
-                if not config.use_mm:
+                if not self.use_mm:
                     stroke_width = self._convert_mm_to_decimil(
                         stroke_width
                     )
 
                 if fill:
                     self._write_polygon_filled(
-                        config, segments, flip, layer,
+                        segments, flip, layer,
                         stroke_width # For pretty format
                     )
 
-                if not config.pretty and stroke:
+                if not self.pretty and stroke:
 
                     self._write_polygon_outline(
-                        config, segments, stroke_width, flip, layer
+                        segments, stroke_width, flip, layer
                     )
 
             else:
@@ -289,24 +315,24 @@ class Svg2Mod( object ):
 
     #------------------------------------------------------------------------
 
-    def _write_module( self, config, front ):
+    def _write_module( self, front ):
 
-        module_name = self._get_module_name( config, front )
+        module_name = self._get_module_name( front )
 
         if front:
             side = "F"
         else:
             side = "B"
 
-        min_point, max_point = self.svg.bbox()
-        min_point = self._transform_point( config, min_point, flip = False )
-        max_point = self._transform_point( config, max_point, flip = False )
+        min_point, max_point = self.imported.svg.bbox()
+        min_point = self._transform_point( min_point, flip = False )
+        max_point = self._transform_point( max_point, flip = False )
 
         label_offset = 1200
         label_size = 600
         label_pen = 120
 
-        if config.use_mm:
+        if self.use_mm:
             label_size = self._convert_decimil_to_mm( label_size )
             label_pen = self._convert_decimil_to_mm( label_pen )
             reference_y = min_point.y - self._convert_decimil_to_mm( label_offset )
@@ -315,9 +341,9 @@ class Svg2Mod( object ):
             reference_y = min_point.y - label_offset
             value_y = max_point.y + label_offset
 
-        if config.pretty:
+        if self.pretty:
 
-            config.output_file.write(
+            self.output_file.write(
 """  (fp_text reference {0} (at 0 {1}) (layer {2}.SilkS) hide
     (effects (font (size {3} {3}) (thickness {4})))
   )
@@ -330,14 +356,14 @@ class Svg2Mod( object ):
     side, #2
     label_size, #3
     label_pen, #4
-    self.module_value, #5
+    self.imported.module_value, #5
     value_y, #6
 )
             )
 
         else:
 
-            config.output_file.write( """$MODULE {0}
+            self.output_file.write( """$MODULE {0}
 Po 0 0 0 {6} 00000000 00000000 ~~
 Li {0}
 T0 0 {1} {2} {2} 0 {3} N I 21 "{0}"
@@ -347,7 +373,7 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
     reference_y,
     label_size,
     label_pen,
-    self.module_value,
+    self.imported.module_value,
     value_y,
     15, # Seems necessary
 )
@@ -357,28 +383,28 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
 
             if group is None: continue
 
-            if config.pretty:
-                layer = side + "." + self.layer_map[ name ][ 2 ]
+            layer_info = self.layer_map[ name ]
+            if self.pretty:
+                layer = side + "." + layer_info[ 2 ]
 
             else:
-                layer = self.layer_map[ name ][ 0 ]
-                if not front:
-                    layer = self.layer_map[ name ][ 1 ]
+                layer = layer_info[ 0 ]
+                if not front and layer_info[ 1 ] is not None:
+                    layer = layer_info[ 1 ]
 
             #print( "  Writing layer: {}".format( name ) )
-            self._write_items( config, group.items, not front, layer )
+            self._write_items( group.items, not front, layer )
 
-        if config.pretty:
-            config.output_file.write( "\n)" )
+        if self.pretty:
+            self.output_file.write( "\n)" )
         else:
-            config.output_file.write( "$EndMODULE {0}\n".format( module_name ) )
+            self.output_file.write( "$EndMODULE {0}\n".format( module_name ) )
 
 
     #------------------------------------------------------------------------
 
     def _write_polygon_filled(
         self,
-        config,
         segments,
         flip,
         layer,
@@ -398,7 +424,7 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
         total_points = 0
         for points in segments:
 
-            points = self._collapse_points( config, points, flip )
+            points = self._collapse_points( points, flip )
             collapsed_segments.append( points )
 
             num_points = len( points )
@@ -412,16 +438,16 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
         if len( collapsed_segments ) > 1:
             total_points += 1
 
-        if config.pretty:
-            config.output_file.write( "\n  (fp_poly\n    (pts \n" )
+        if self.pretty:
+            self.output_file.write( "\n  (fp_poly\n    (pts \n" )
             point_str = "      (xy {} {})\n"
 
         else:
             pen = 1
-            if config.use_mm:
+            if self.use_mm:
                 pen = self._convert_decimil_to_mm( pen )
 
-            config.output_file.write( "DP 0 0 0 0 {} {} {}\n".format(
+            self.output_file.write( "DP 0 0 0 0 {} {} {}\n".format(
                 total_points,
                 pen,
                 layer
@@ -440,25 +466,19 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
                     points[ 0 ], points[ -1 ]
                 ) )
 
-            #config.output_file.write( "Segment begin\n" )
-
             for point in points:
 
-                #print( "        {}, {}".format( point.x, point.y ) )
-
-                config.output_file.write( point_str.format( point.x, point.y ) )
-
-            #config.output_file.write( "Segment end\n" )
+                self.output_file.write( point_str.format( point.x, point.y ) )
 
         if len( collapsed_segments ) > 1:
 
-            config.output_file.write( point_str.format(
+            self.output_file.write( point_str.format(
                 collapsed_segments[ 0 ][ 0 ].x,
                 collapsed_segments[ 0 ][ 0 ].y,
             ) )
 
-        if config.pretty:
-            config.output_file.write(
+        if self.pretty:
+            self.output_file.write(
                 "    )\n    (layer {})\n    (width {})\n  )".format(
                     layer, stroke_width
                 )
@@ -467,23 +487,21 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
 
     #------------------------------------------------------------------------
 
-    def _write_polygon_outline( self, config, segments, stroke_width, flip, layer ):
+    def _write_polygon_outline( self, segments, stroke_width, flip, layer ):
 
         print( "    Writing polygon outline with {} segments".format( len( segments ) ) )
 
         for points in segments:
 
-            #config.output_file.write( "Outline begin\n" )
-
-            points = self._collapse_points( config, points, flip )
+            points = self._collapse_points( points, flip )
 
             prior_point = None
             for point in points:
 
                 if prior_point is not None:
 
-                    if config.pretty:
-                        config.output_file.write(
+                    if self.pretty:
+                        self.output_file.write(
                             """\n  (fp_line
     (start {} {})
     (end {} {})
@@ -498,7 +516,7 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
                         )
 
                     else:
-                        config.output_file.write( "DS {} {} {} {} {} {}\n".format(
+                        self.output_file.write( "DS {} {} {} {} {} {}\n".format(
                             prior_point.x,
                             prior_point.y,
                             point.x,
@@ -509,84 +527,56 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
 
                 prior_point = point
 
-            #config.output_file.write( "Outline end\n" )
-
-
-    #------------------------------------------------------------------------
-
-    # Find and keep only the layers of interest.
-    def prune( self, items = None ):
-
-        if items is None:
-            items = self.svg.items
-            self.svg.items = []
-
-        for item in items:
-
-            if not isinstance( item, svg.Group ):
-                continue
-
-            #print( "Found a group: {}".format( item.name ) )
-
-            for name in self.layer_map.iterkeys():
-                if re.search( name, item.name, re.I ):
-                    print( "Found layer: {}".format( item.name ) )
-                    self.svg.items.append( item )
-                    self.layers[ name ] = item
-                    break
-            else:
-                self.prune( item.items )
-
 
     #------------------------------------------------------------------------
 
     def scale( self, factor ):
-        self.svg.transform( svg.Matrix( [ factor, 0, 0, factor, 0, 0, ] ) )
-        #self.svg.scale( factor )
+        self.imported.svg.transform( svg.Matrix( [ factor, 0, 0, factor, 0, 0, ] ) )
+        #self.imported.svg.scale( factor )
         pass
 
 
     #------------------------------------------------------------------------
 
-    def _write_library_intro( self, config ):
+    def _write_library_intro( self ):
 
-        if config.pretty:
+        if self.pretty:
 
-            output_file_name = config.output_file_name + ".kicad_mod"
-            print( "Writing module file: {}".format( output_file_name ) )
-            config.output_file = open( output_file_name, 'w' )
+            self.file_name += ".kicad_mod"
+            print( "Writing module file: {}".format( self.file_name ) )
+            self.output_file = open( self.file_name, 'w' )
 
-            config.output_file.write( """(module {0} (layer F.Cu) (tedit {1:8X})
+            self.output_file.write( """(module {0} (layer F.Cu) (tedit {1:8X})
   (attr smd)
   (descr "{2}")
   (tags {3})
 """.format(
-    self.module_name, #0
+    self.imported.module_name, #0
     int( round( os.path.getctime( #1
-        self.input_file_name
+        self.imported.file_name
     ) ) ),
-    "Imported from {}".format( self.input_file_name ), #2
+    "Imported from {}".format( self.imported.file_name ), #2
     "svg2mod", #3
 )
             )
 
         else: # legacy format:
 
-            config.output_file_name = config.output_file_name + ".mod"
-            print( "Writing module file: {}".format( config.output_file_name ) )
-            config.output_file = open( config.output_file_name, 'w' )
+            self.file_name += ".mod"
+            print( "Writing module file: {}".format( self.file_name ) )
+            self.output_file = open( self.file_name, 'w' )
 
-            modules_list = self._get_module_name( config, front = True )
-            if config.include_reverse:
+            modules_list = self._get_module_name( front = True )
+            if self.include_reverse:
                 modules_list += (
                     "\n" + 
-                    self._get_module_name( config, front = False )
+                    self._get_module_name( front = False )
                 )
 
             units = ""
-            if config.use_mm: units = "\nUnits mm"
+            if self.use_mm: units = "\nUnits mm"
 
-            config.output_file.write( """PCBNEW-LibModule-V1  {0}{1}
+            self.output_file.write( """PCBNEW-LibModule-V1  {0}{1}
 $INDEX
 {2}
 $EndINDEX
@@ -597,42 +587,31 @@ $EndINDEX
     datetime.datetime.now().strftime( "%a %d %b %Y %I:%M:%S %p %Z" ),
     units,
     modules_list,
-    self.input_file_name,
+    self.imported.file_name,
 )
             )
 
 
     #------------------------------------------------------------------------
 
-    def write(
-        self,
-        output_file_name,
-        scale_factor = 1.0,
-        precision = 20,
-        pretty = True,
-        include_reverse = True,
-        use_mm = True,
-    ):
-        config = Svg2ModWriteConfig(
-            output_file_name,
-            scale_factor,
-            precision,
-            pretty,
-            include_reverse,
-            use_mm,
-        )
+    def write( self ):
 
-        self._write_library_intro( config )
+        self._prune()
 
-        self._write_module( config, front = True )
-        if not pretty and include_reverse:
-            self._write_module( config, front = False )
+        # Must come after pruning:
+        translation = self._calculate_translation()
 
-        if not pretty:
-            config.output_file.write( "$EndLIBRARY" )
+        self._write_library_intro()
 
-        config.output_file.close()
-        config.output_file = None
+        self._write_module( front = True )
+        if not self.pretty and self.include_reverse:
+            self._write_module( front = False )
+
+        if not self.pretty:
+            self.output_file.write( "$EndLIBRARY" )
+
+        self.output_file.close()
+        self.output_file = None
 
 
     #------------------------------------------------------------------------

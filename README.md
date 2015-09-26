@@ -57,7 +57,7 @@ Layers must be named (case-insensitive) according to the following rules:
 | Eco1.User           | Eco1.User        | Yes          | --           |
 | Eco2.User           | Eco2.User        | Yes          | --           |
 | Edge.Cuts           | Edge.Cuts        | Yes          | --           |
-| Fab                 | Fab              | --           | Yes          |
-| CrtYd               | CrtYd            | --           | Yes          |
+| Fab                 | F.Fab, B.Fab     | --           | Yes          |
+| CrtYd               | F.CrtYd, B.CrtYd | --           | Yes          |
 
 Note: If you have a layer "Cu", all of its sub-layers will be treated as "Cu" regardless of their names.

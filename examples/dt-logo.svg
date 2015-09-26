@@ -13,7 +13,7 @@
    inkscape:export-xdpi="10160"
    inkscape:export-filename="/home/mike/git/keyboard-pcbs/amoeba/dt.copper.png"
    sodipodi:docname="dt-logo.svg"
-   inkscape:version="0.91 r13725"
+   inkscape:version="0.48.5 r10040"
    version="1.1"
    id="svg3350"
    height="10.194095"
@@ -28,7 +28,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="32"
-     inkscape:cx="5.8090074"
+     inkscape:cx="1.9496324"
      inkscape:cy="5.1065733"
      inkscape:document-units="px"
      inkscape:current-layer="layer2"
@@ -39,8 +39,8 @@
      fit-margin-bottom="0"
      inkscape:window-width="1364"
      inkscape:window-height="747"
-     inkscape:window-x="1076"
-     inkscape:window-y="736"
+     inkscape:window-x="0"
+     inkscape:window-y="19"
      inkscape:window-maximized="0"
      inkscape:snap-bbox="true"
      inkscape:snap-page="true"
@@ -54,25 +54,82 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
   <g
      inkscape:groupmode="layer"
+     id="layer24"
+     inkscape:label="Pretty">
+    <g
+       inkscape:groupmode="layer"
+       id="layer25"
+       inkscape:label="Fab" />
+    <g
+       inkscape:groupmode="layer"
+       id="layer26"
+       inkscape:label="CrtYd" />
+  </g>
+  <g
+     inkscape:groupmode="layer"
+     id="layer17"
+     inkscape:label="Legacy">
+    <g
+       inkscape:groupmode="layer"
+       id="layer23"
+       inkscape:label="Edge.Cuts" />
+    <g
+       inkscape:groupmode="layer"
+       id="layer18"
+       inkscape:label="User">
+      <g
+         inkscape:groupmode="layer"
+         id="layer19"
+         inkscape:label="Eco2.User" />
+      <g
+         inkscape:groupmode="layer"
+         id="layer20"
+         inkscape:label="Eco1.User" />
+      <g
+         inkscape:groupmode="layer"
+         id="layer21"
+         inkscape:label="Cmts.User" />
+      <g
+         inkscape:groupmode="layer"
+         id="layer22"
+         inkscape:label="Dwgs.User" />
+    </g>
+  </g>
+  <g
+     inkscape:groupmode="layer"
      id="layer1"
-     inkscape:label="mask"
+     inkscape:label="Mask"
      style="display:inline">
     <path
-       style="fill:#330055;fill-opacity:1;stroke:none"
+       style="fill:#330055;fill-opacity:1;stroke:#000000;stroke-width:0.001"
        d="m 2.25,0 7.901575,0 c 1.2465,0 2.25,1.0035 2.25,2.25 l 0,5.6940947 c 0,1.2465 -1.0035,2.2500003 -2.25,2.2500003 l -7.901575,0 C 1.0035,10.194095 0,9.1905947 0,7.9440947 L 0,2.25 C 0,1.0035 1.0035,0 2.25,0 z"
        id="rect4695"
        inkscape:connector-curvature="0" />
   </g>
   <g
      inkscape:groupmode="layer"
+     id="layer6"
+     inkscape:label="SilkS"
+     style="display:inline" />
+  <g
+     inkscape:groupmode="layer"
+     id="layer10"
+     inkscape:label="Paste" />
+  <g
+     inkscape:groupmode="layer"
+     id="layer5"
+     inkscape:label="Adhes"
+     style="display:inline" />
+  <g
+     inkscape:groupmode="layer"
      id="layer2"
-     inkscape:label="cu"
+     inkscape:label="Cu"
      transform="translate(1.7716577,1.4563806)"
      style="display:inline">
     <path
@@ -82,8 +139,8 @@
        inkscape:connector-curvature="0"
        sodipodi:nodetypes="ccssssssc" />
     <path
-       style="display:inline;fill:#b18883;fill-opacity:1;stroke:none"
-       d="M 0.4658035,2.9578979e-6 C 0.2079133,2.9578979e-6 -2.5e-6,0.15682656 -2.5e-6,0.35219776 l 0,6.57581734 c 0,0.1953713 0.2079158,0.3533309 0.465806,0.3533309 l 3.9161787,0 c 0.2578899,0 0.465806,-0.1579596 0.465806,-0.3533309 l 0,-6.57581734 C 4.8477882,0.15682656 4.6398721,2.9578979e-6 4.3819822,2.9578979e-6 Z M 0.89298168,1.0054623 l 1.35879022,0 0.3453781,0 0.019314,0 c 0.742411,0 1.3394763,0.5970655 1.3394763,1.3394762 l 0,2.5903358 c 0,0.7424106 -0.5970653,1.3406124 -1.3394763,1.3406124 l -0.019314,0 -0.3453781,0 -1.35879022,0 z"
+       style="fill:#b18883;fill-opacity:1;stroke:none;display:inline"
+       d="M 0.4658035,2.9578979e-6 C 0.2079133,2.9578979e-6 -2.5e-6,0.15682656 -2.5e-6,0.35219776 l 0,6.57581734 c 0,0.1953713 0.2079158,0.3533309 0.465806,0.3533309 l 3.9161787,0 c 0.2578899,0 0.465806,-0.1579596 0.465806,-0.3533309 l 0,-6.57581734 C 4.8477882,0.15682656 4.6398721,2.9578979e-6 4.3819822,2.9578979e-6 z M 0.89298168,1.0054623 l 1.35879022,0 0.3453781,0 0.019314,0 c 0.742411,0 1.3394763,0.5970655 1.3394763,1.3394762 l 0,2.5903358 c 0,0.7424106 -0.5970653,1.3406124 -1.3394763,1.3406124 l -0.019314,0 -0.3453781,0 -1.35879022,0 z"
        id="rect4005-0-1"
        inkscape:connector-curvature="0"
        sodipodi:nodetypes="ssssssssscccsssscccc" />
@@ -93,24 +150,4 @@
        id="rect4007-1"
        inkscape:connector-curvature="0" />
   </g>
-  <g
-     inkscape:groupmode="layer"
-     id="layer4"
-     inkscape:label="edge cuts"
-     style="display:inline" />
-  <g
-     inkscape:groupmode="layer"
-     id="layer5"
-     inkscape:label="glue"
-     style="display:inline" />
-  <g
-     inkscape:groupmode="layer"
-     id="layer6"
-     inkscape:label="silkscreen"
-     style="display:inline" />
-  <g
-     inkscape:groupmode="layer"
-     id="layer3"
-     inkscape:label="comments"
-     style="display:inline" />
 </svg>
