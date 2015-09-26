@@ -45,19 +45,14 @@ def main():
             os.path.basename( args.input_file_name )
         )[ 0 ]
 
-        if pretty:
-            args.output_file_name += ".kicad_mod"
-        else:
-            args.output_file_name += ".mod"
-
     use_mm = args.units == 'mm'
 
     svg2mod.write(
         args.output_file_name,
         args.scale_factor,
         args.precision,
-        include_reverse = not args.front_only,
         pretty = pretty,
+        include_reverse = not args.front_only,
         use_mm = use_mm,
     )
 
@@ -68,22 +63,21 @@ class Svg2ModWriteConfig( object ):
 
     def __init__(
         self,
-        output_file,
         output_file_name,
         scale_factor,
         precision,
-        include_reverse,
         pretty,
+        include_reverse,
         use_mm,
     ):
-        if use_mm:
+        if pretty or use_mm:
             # 25.4 mm/in; Inkscape uses 90 DPI:
             scale_factor *= 25.4 / 90.0
+            use_mm = True
         else:
             # PCBNew uses "decimil" (10K DPI); Inkscape uses 90 DPI:
             scale_factor *= 10000.0 / 90.0
 
-        self.output_file = output_file
         self.output_file_name = output_file_name
         self.scale_factor = scale_factor
         self.precision = precision
@@ -185,6 +179,7 @@ class Svg2Mod( object ):
 
         min_point, max_point = self.svg.bbox()
 
+        # Center the drawing:
         adjust_x = min_point.x + ( max_point.x - min_point.x ) / 2.0
         adjust_y = min_point.y + ( max_point.y - min_point.y ) / 2.0
 
@@ -213,6 +208,19 @@ class Svg2Mod( object ):
                 new_points.append( point )
 
         return new_points
+
+
+    #------------------------------------------------------------------------
+
+    def _get_module_name( self, config, front = None ):
+
+        if not config.pretty and config.include_reverse:
+            if front:
+                return self.module_name + "-Front"
+            else:
+                return self.module_name + "-Back"
+
+        return self.module_name
 
 
     #------------------------------------------------------------------------
@@ -276,13 +284,11 @@ class Svg2Mod( object ):
 
     def _write_module( self, config, front ):
 
+        module_name = self._get_module_name( config, front )
+
         if front:
-            module_name = self.module_name
-            if config.include_reverse:
-                module_name += "-Front"
             side = "F"
         else:
-            module_name = "{}{}".format( self.module_name, "-Back" )
             side = "B"
 
         min_point, max_point = self.svg.bbox()
@@ -303,29 +309,22 @@ class Svg2Mod( object ):
             value_y = max_point.y + label_offset
 
         if config.pretty:
-            if not front: config.output_file.write( "\n" )
-            config.output_file.write( """(module {0} (layer F.Cu) (tedit {1:8X})
-  (descr "{2}")
-  (tags {3})
-  (fp_text reference {4} (at 0 {5}) (layer {6}.SilkS) hide
-    (effects (font (size {7} {7}) (thickness {8})))
+
+            config.output_file.write(
+"""  (fp_text reference {0} (at 0 {1}) (layer {2}.SilkS) hide
+    (effects (font (size {3} {3}) (thickness {4})))
   )
-  (fp_text value {9} (at 0 {10}) (layer {6}.SilkS) hide
-    (effects (font (size {7} {7}) (thickness {8})))
+  (fp_text value {5} (at 0 {6}) (layer {2}.SilkS) hide
+    (effects (font (size {3} {3}) (thickness {4})))
   )""".format(
+
     module_name, #0
-    int( round( os.path.getctime( #1
-        self.input_file_name
-    ) ) ),
-    "Imported from {}".format( self.input_file_name ), #2
-    "svg2mod", #3
-    module_name, #4
-    reference_y, #5
-    side, #6
-    label_size, #7
-    label_pen, #8
-    self.module_value, #9
-    value_y, #10
+    reference_y, #1
+    side, #2
+    label_size, #3
+    label_pen, #4
+    self.module_value, #5
+    value_y, #6
 )
             )
 
@@ -352,10 +351,7 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
             if group is None: continue
 
             if config.pretty:
-
-                if front: layer = "F."
-                else: layer = "B."
-                layer += self.layer_map[ name ][ 2 ]
+                layer = side + "." + self.layer_map[ name ][ 2 ]
 
             else:
                 layer = self.layer_map[ name ][ 0 ]
@@ -403,8 +399,8 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
             total_points += 1
 
         if config.pretty:
-            config.output_file.write( "\n  (fp_poly (pts \n" )
-            point_str = "    (xy {} {})\n"
+            config.output_file.write( "\n  (fp_poly\n    (pts \n" )
+            point_str = "      (xy {} {})\n"
 
         else:
             pen = 1
@@ -448,7 +444,12 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
             ) )
 
         if config.pretty:
-            config.output_file.write( "  ) )" )
+            # What should width be for a filled polygon?
+            config.output_file.write(
+                "    )\n    (layer {})\n    (width {})\n  )".format(
+                    layer, self._convert_decimil_to_mm( 1 )
+                )
+            )
 
 
     #------------------------------------------------------------------------
@@ -469,9 +470,13 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
                 if prior_point is not None:
 
                     if config.pretty:
-#(fp_line (start 3.74904 8.7503) (end -3.74904 8.7503) (layer F.SilkS) (width 0.381))
                         config.output_file.write(
-                            "\n  (fp_line (start {} {}) (end {} {}) (layer {}) (width {}))".format(
+                            """\n  (fp_line
+    (start {} {})
+    (end {} {})
+    (layer {})
+    (width {})
+  )""".format(
                                 prior_point.x, prior_point.y,
                                 point.x, point.y,
                                 layer,
@@ -530,39 +535,45 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
 
     #------------------------------------------------------------------------
 
-    def write(
-        self,
-        output_file_name,
-        scale_factor = 1.0,
-        precision = 20,
-        include_reverse = True,
-        pretty = True,
-        use_mm = True,
-    ):
-        print( "Writing module file: {}".format( output_file_name ) )
-        output_file = open( output_file_name, 'w' )
+    def _write_library_intro( self, config ):
 
-        config = Svg2ModWriteConfig(
-            output_file,
-            output_file_name,
-            scale_factor,
-            precision,
-            include_reverse,
-            pretty,
-            use_mm,
-        )
+        if config.pretty:
 
-        if not pretty:
+            output_file_name = config.output_file_name + ".kicad_mod"
+            print( "Writing module file: {}".format( output_file_name ) )
+            config.output_file = open( output_file_name, 'w' )
 
-            if include_reverse:
-                modules_list = "{0}-Front\n{0}-Back".format( self.module_name )
-            else:
-                modules_list = "{0}".format( self.module_name )
+            config.output_file.write( """(module {0} (layer F.Cu) (tedit {1:8X})
+  (attr smd)
+  (descr "{2}")
+  (tags {3})
+""".format(
+    self.module_name, #0
+    int( round( os.path.getctime( #1
+        self.input_file_name
+    ) ) ),
+    "Imported from {}".format( self.input_file_name ), #2
+    "svg2mod", #3
+)
+            )
+
+        else: # legacy format:
+
+            config.output_file_name = config.output_file_name + ".mod"
+            print( "Writing module file: {}".format( config.output_file_name ) )
+            config.output_file = open( config.output_file_name, 'w' )
+
+            modules_list = self._get_module_name( config, front = True )
+            if config.include_reverse:
+                modules_list += (
+                    "\n" + 
+                    self._get_module_name( config, front = False )
+                )
 
             units = ""
-            if use_mm: units = "\nUnits mm"
+            if config.use_mm: units = "\nUnits mm"
 
-            output_file.write( """PCBNEW-LibModule-V1  {0}{1}
+            config.output_file.write( """PCBNEW-LibModule-V1  {0}{1}
 $INDEX
 {2}
 $EndINDEX
@@ -577,17 +588,39 @@ $EndINDEX
 )
             )
 
-        print( "Writing front module..." )
-        self._write_module( config, front = True )
 
-        if include_reverse:
-            print( "Writing back module..." )
+
+    #------------------------------------------------------------------------
+
+    def write(
+        self,
+        output_file_name,
+        scale_factor = 1.0,
+        precision = 20,
+        pretty = True,
+        include_reverse = True,
+        use_mm = True,
+    ):
+        config = Svg2ModWriteConfig(
+            output_file_name,
+            scale_factor,
+            precision,
+            pretty,
+            include_reverse,
+            use_mm,
+        )
+
+        self._write_library_intro( config )
+
+        self._write_module( config, front = True )
+        if not pretty and include_reverse:
             self._write_module( config, front = False )
 
         if not pretty:
-            output_file.write( "$EndLIBRARY" )
+            config.output_file.write( "$EndLIBRARY" )
 
-        output_file.close()
+        config.output_file.close()
+        config.output_file = None
 
 
     #------------------------------------------------------------------------
