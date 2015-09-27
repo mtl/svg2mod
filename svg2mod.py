@@ -2,24 +2,14 @@
 
 from __future__ import absolute_import
 
-#if __name__ == "__main__" and __package__ is None:
-    #__package__ = "svg2mod"
-
-import svg
-
 import argparse
 import datetime
 import os
 from pprint import pformat, pprint
 import re
+import svg
 import sys
 
-# To-do:
-# support lines, arcs, rects, circles, etc.
-# Mark center with a circle or a group or something...
-#    ...And adjust text labels accordingly
-
-#----------------------------------------------------------------------------
 
 #----------------------------------------------------------------------------
 
@@ -27,26 +17,44 @@ def main():
 
     args, parser = get_arguments()
 
-    if args.format == 'pretty' and args.units == 'decimil':
-        print( "Error: decimil units only allowed with legacy output type" )
-        sys.exit( -1 )
+    pretty = args.format == 'pretty'
+    use_mm = args.units == 'mm'
 
+    if pretty:
+        
+        if not use_mm:
+            print( "Error: decimil units only allowed with legacy output type" )
+            sys.exit( -1 )
+
+        #if args.include_reverse:
+            #print(
+                #"Warning: reverse footprint not supported or required for" +
+                #" pretty output format"
+            #)
+
+    # Import the SVG:
     imported = Svg2ModImport(
         args.input_file_name,
         args.module_name,
         args.module_value
     )
 
-    pretty = args.format == 'pretty'
-
+    # Pick an output file name if none was provided:
     if args.output_file_name is None:
 
         args.output_file_name = os.path.splitext(
             os.path.basename( args.input_file_name )
         )[ 0 ]
 
-    use_mm = args.units == 'mm'
+    # Append the correct file name extension if needed:
+    if pretty:
+        extension = ".kicad_mod"
+    else:
+        extension = ".mod"
+    if args.output_file_name[ - len( extension ) : ] != extension:
+        args.output_file_name += extension
 
+    # Export the footprint:
     exported = Svg2ModExport(
         imported,
         args.output_file_name,
@@ -74,6 +82,8 @@ class Svg2ModImport( object ):
         print( "Parsing SVG..." )
         self.svg = svg.parse( file_name )
 
+
+    #------------------------------------------------------------------------
 
 #----------------------------------------------------------------------------
 
@@ -532,19 +542,10 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
 
     #------------------------------------------------------------------------
 
-    def scale( self, factor ):
-        self.imported.svg.transform( svg.Matrix( [ factor, 0, 0, factor, 0, 0, ] ) )
-        #self.imported.svg.scale( factor )
-        pass
-
-
-    #------------------------------------------------------------------------
-
     def _write_library_intro( self ):
 
         if self.pretty:
 
-            self.file_name += ".kicad_mod"
             print( "Writing module file: {}".format( self.file_name ) )
             self.output_file = open( self.file_name, 'w' )
 
@@ -564,7 +565,6 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
 
         else: # legacy format:
 
-            self.file_name += ".mod"
             print( "Writing module file: {}".format( self.file_name ) )
             self.output_file = open( self.file_name, 'w' )
 
@@ -710,14 +710,15 @@ def get_arguments():
         default = 'mm',
     )
 
-
-    #------------------------------------------------------------------------
-
     return parser.parse_args(), parser
 
+
+    #------------------------------------------------------------------------
 
 #----------------------------------------------------------------------------
 
 main()
 
 
+#----------------------------------------------------------------------------
+# vi: set et sts=4 sw=4 ts=4:
