@@ -301,7 +301,9 @@ class Svg2ModExport( object ):
                         stroke_width # For pretty format
                     )
 
-                if not self.pretty and stroke:
+                # In pretty format, polygons with a fill and stroke are
+                # drawn with the filled polygon above:
+                if stroke and not ( self.pretty and fill ):
 
                     self._write_polygon_outline(
                         segments, stroke_width, flip, layer
