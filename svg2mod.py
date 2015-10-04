@@ -199,6 +199,10 @@ class PolygonSegment( object ):
 
     #------------------------------------------------------------------------
  
+    # KiCad will not "pick up the pen" when moving between a polygon outline
+    # and holes within it, so we search for a pair of points connecting the
+    # outline (self) to the hole such that the connecting segment will not
+    # cross the visible inner space within any hole.
     def _find_insertion_point( self, hole, holes ):
 
         # Try the next point on the container:
@@ -257,8 +261,7 @@ class PolygonSegment( object ):
 
     #------------------------------------------------------------------------
  
-    # Return a list of points with the given polygon segments (paths)
-    # inlined.
+    # Return a list of points with the given polygon segments (paths) inlined.
     def inline( self, segments ):
 
         if len( segments ) < 1:
