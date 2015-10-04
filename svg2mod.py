@@ -69,6 +69,312 @@ def main():
 
 #----------------------------------------------------------------------------
 
+class LineSegment( object ):
+
+    #------------------------------------------------------------------------
+ 
+    @staticmethod
+    def _on_segment( p, q, r ):
+        """ Given three colinear points p, q, and r, check if
+            point q lies on line segment pr. """
+
+        if (
+            q.x <= max( p.x, r.x ) and
+            q.x >= min( p.x, r.x ) and
+            q.y <= max( p.y, r.y ) and
+            q.y >= min( p.y, r.y )
+        ):
+            return True
+
+        return False
+
+
+    #------------------------------------------------------------------------
+ 
+    @staticmethod
+    def _orientation( p, q, r ):
+        """ Find orientation of ordered triplet (p, q, r).
+            Returns following values
+            0 --> p, q and r are colinear
+            1 --> Clockwise
+            2 --> Counterclockwise
+        """
+
+        val = (
+            ( q.y - p.y ) * ( r.x - q.x ) -
+            ( q.x - p.x ) * ( r.y - q.y )
+        )
+
+        if val == 0: return 0
+        if val > 0: return 1
+        return 2
+        
+
+    #------------------------------------------------------------------------
+
+    def __init__( self, p = None, q = None ):
+
+        self.p = p
+        self.q = q
+
+
+    #------------------------------------------------------------------------
+ 
+    def intersects( self, segment ):
+        """ Return true if line segments 'p1q1' and 'p2q2' intersect.
+            Adapted from:
+              http://www.geeksforgeeks.org/check-if-two-given-line-segments-intersect/
+        """
+
+        # Find the four orientations needed for general and special cases:
+        o1 = self._orientation( self.p, self.q, segment.p )
+        o2 = self._orientation( self.p, self.q, segment.q )
+        o3 = self._orientation( segment.p, segment.q, self.p )
+        o4 = self._orientation( segment.p, segment.q, self.q )
+
+        return (
+
+            # General case:
+            ( o1 != o2 and o3 != o4 )
+
+            or
+
+            # p1, q1 and p2 are colinear and p2 lies on segment p1q1:
+            ( o1 == 0 and self._on_segment( self.p, segment.p, self.q ) )
+
+            or
+
+            # p1, q1 and p2 are colinear and q2 lies on segment p1q1:
+            ( o2 == 0 and self._on_segment( self.p, segment.q, self.q ) )
+
+            or
+
+            # p2, q2 and p1 are colinear and p1 lies on segment p2q2:
+            ( o3 == 0 and self._on_segment( segment.p, self.p, segment.q ) )
+
+            or
+
+            # p2, q2 and q1 are colinear and q1 lies on segment p2q2:
+            ( o4 == 0 and self._on_segment( segment.p, self.q, segment.q ) )
+        )
+
+
+    #------------------------------------------------------------------------
+
+    def q_connects( self, segment ):
+
+        if self.q.x == segment.p.x and self.q.y == segment.p.y: return True
+        if self.q.x == segment.q.x and self.q.y == segment.q.y: return True
+        return False
+
+
+    #------------------------------------------------------------------------
+
+    def q_next( self, q ):
+
+        self.p = self.q
+        self.q = q
+
+
+    #------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------
+
+class PolygonSegment( object ):
+
+    #------------------------------------------------------------------------
+
+    def __init__( self, points ):
+
+        self.points = points
+
+        if len( points ) < 3:
+            print(
+                "Warning:"
+                " Path segment has only {} points (not a polygon?)".format(
+                    len( points )
+                )
+            )
+
+
+    #------------------------------------------------------------------------
+ 
+    def _find_insertion_point( self, hole, holes ):
+
+        # Try the next point on the container:
+        for cp in range( len( self.points ) ):
+            container_point = self.points[ cp ]
+
+            # Try the next point on the hole:
+            for hp in range( len( hole.points ) - 1 ):
+                hole_point = hole.points[ hp ]
+
+                bridge = LineSegment( container_point, hole_point )
+
+                # Check for intersection with each other hole:
+                for other_hole in holes:
+
+                    # If the other hole intersects, don't bother checking
+                    # remaining holes:
+                    if other_hole.intersects(
+                        bridge,
+                        check_connects = hole == other_hole
+                    ): break
+
+                else:
+                    #print( "Found insertion point: {}, {}".format( cp, hp ) )
+
+                    # No other holes intersected, so this insertion point
+                    # is acceptable:
+                    return ( cp, hole.points_starting_on_index( hp ) )
+
+        print(
+            "Could not insert segment without overlapping other segments"
+        )
+
+
+    #------------------------------------------------------------------------
+ 
+    # Return the list of ordered points starting on the given index, ensuring
+    # that the first and last points are the same.
+    def points_starting_on_index( self, index ):
+
+        points = self.points
+
+        if index > 0:
+
+            # Strip off end point, which is a duplicate of the start point:
+            points = points[ : -1 ]
+
+            points = points[ index : ] + points[ : index ]
+
+            points.append(
+                svg.Point( points[ 0 ].x, points[ 0 ].y )
+            )
+
+        return points
+
+
+    #------------------------------------------------------------------------
+ 
+    # Return a list of points with the given polygon segments (paths)
+    # inlined.
+    def inline( self, segments ):
+
+        if len( segments ) < 1:
+            return self.points
+
+        #print( "    Inlining segments..." )
+
+        insertions = []
+
+        # Find the insertion point for each hole:
+        for hole in segments:
+
+            insertion = self._find_insertion_point(
+                hole, segments
+            )
+            if insertion is not None:
+                insertions.append( insertion )
+
+        insertions.sort( key = lambda i: i[ 0 ] )
+
+        inlined = [ self.points[ 0 ] ]
+        ip = 1
+        points = self.points
+
+        for insertion in insertions:
+
+            while ip <= insertion[ 0 ]:
+                inlined.append( points[ ip ] )
+                ip += 1
+
+            if (
+                inlined[ -1 ].x == insertion[ 1 ][ 0 ].x and
+                inlined[ -1 ].y == insertion[ 1 ][ 0 ].y
+            ):
+                inlined += insertion[ 1 ][ 1 : -1 ]
+            else:
+                inlined += insertion[ 1 ]
+
+            inlined.append( svg.Point(
+                points[ ip - 1 ].x,
+                points[ ip - 1 ].y,
+            ) )
+
+        while ip < len( points ):
+            inlined.append( points[ ip ] )
+            ip += 1
+
+        return inlined
+
+
+    #------------------------------------------------------------------------
+ 
+    def intersects( self, line_segment, check_connects ):
+
+        hole_segment = LineSegment()
+
+        # Check each segment of other hole for intersection:
+        for point in self.points:
+
+            hole_segment.q_next( point )
+
+            if hole_segment.p is not None:
+
+                if (
+                    check_connects and
+                    line_segment.q_connects( hole_segment )
+                ): continue
+
+                if line_segment.intersects( hole_segment ):
+
+                    #print( "Intersection detected." )
+
+                    return True
+        
+        return False
+
+
+    #------------------------------------------------------------------------
+
+    # Apply all transformations and rounding, then remove duplicate
+    # consecutive points along the path.
+    def process( self, flip, transformer ):
+
+        points = []
+        for point in self.points:
+
+            point = transformer.transform_point( point, flip )
+
+            if (
+                len( points ) < 1 or
+                point.x != points[ -1 ].x or
+                point.y != points[ -1 ].y
+            ):
+                points.append( point )
+
+        if (
+            points[ 0 ].x != points[ -1 ].x or
+            points[ 0 ].y != points[ -1 ].y
+        ):
+            #print( "Warning: Closing polygon. start=({}, {}) end=({}, {})".format(
+                #points[ 0 ].x, points[ 0 ].y,
+                #points[ -1 ].x, points[ -1 ].y,
+            #) )
+
+            points.append( svg.Point(
+                points[ 0 ].x,
+                points[ 0 ].y,
+            ) )
+
+        self.points = points
+
+
+    #------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------
+
 class Svg2ModImport( object ):
 
     #------------------------------------------------------------------------
@@ -200,41 +506,6 @@ class Svg2ModExport( object ):
 
     #------------------------------------------------------------------------
 
-    # Apply all transformations and rounding, then remove duplicate
-    # consecutive points along the path.
-    def _collapse_points( self, points, flip ):
-
-        new_points = []
-        for point in points:
-
-            point = self._transform_point( point, flip )
-
-            if (
-                len( new_points ) < 1 or
-                point.x != new_points[ -1 ].x or
-                point.y != new_points[ -1 ].y
-            ):
-                new_points.append( point )
-
-        if (
-            new_points[ 0 ].x != new_points[ -1 ].x or
-            new_points[ 0 ].y != new_points[ -1 ].y
-        ):
-            print( "Warning: Polygon is not closed. start=({}, {}) end=({}, {})".format(
-                new_points[ 0 ].x, new_points[ 0 ].y,
-                new_points[ -1 ].x, new_points[ -1 ].y,
-            ) )
-
-            new_points.append( svg.Point(
-                new_points[ 0 ].x,
-                new_points[ 0 ].y,
-            ) )
-
-        return new_points
-
-
-    #------------------------------------------------------------------------
-
     def _get_module_name( self, front = None ):
 
         if not self.pretty and self.include_reverse:
@@ -244,238 +515,6 @@ class Svg2ModExport( object ):
                 return self.imported.module_name + "-Back"
 
         return self.imported.module_name
-
-
-    #------------------------------------------------------------------------
- 
-    @classmethod
-    def _inline_find_insertion_point( cls, container, h, holes ):
-
-        hole = holes[ h ]
-
-        # Try the next point on the container:
-        for cp in range( len( container ) ):
-            container_point = container[ cp ]
-
-            #print( "Checking container point: {}".format( cp ) )
-
-            # Try the next point on the hole:
-            for hp in range( len( hole ) - 1 ):
-                hole_point = hole[ hp ]
-
-                #print( "Checking hole point: {}".format( hp ) )
-
-                intersection = False
-
-                # Check for intersection with each other hole:
-                for oh in range( len( holes ) ):
-
-                    #print( "Checking other hole..." )
-
-                    other_hole = holes[ oh ]
-                    prior_oh_point = None
-
-                    # Check each segment of other hole for intersection:
-                    for other_hole_point in other_hole:
-
-                        prior = prior_oh_point
-                        prior_oh_point = other_hole_point
-
-                        #print( "Checking segment on other hole..." )
-
-                        if prior is not None:
-
-                            if (
-                                h == oh and (
-                                    (
-                                        hole_point.x == other_hole_point.x and
-                                        hole_point.y == other_hole_point.y
-                                    ) or (
-                                        hole_point.x == prior.x and
-                                        hole_point.y == prior.y
-                                    )
-                                )
-                            ): continue
-
-                            if cls._inline_intersects(
-                                container_point, hole_point,
-                                prior, other_hole_point,
-                            ):
-                                #print( "Intersection detected." )
-
-                                # The segment intersected.  Don't bother
-                                # checking remaining segments:
-                                intersection = True
-                                break
-
-                    # The other hole intersected.  Don't bother checking
-                    # remaining holes:
-                    if intersection: break
-
-                # No other holes intersected, so this insertion point
-                # is acceptable:
-                if not intersection:
-
-                    #print( "Found insertion point: {}, {}".format( cp, hp ) )
-
-                    if hp > 0:
-
-                        hole = hole[ hp : -1 ] + hole[ : hp ]
-                        hole.append(
-                            svg.Point( hole[ 0 ].x, hole[ 0 ].y )
-                        )
-
-                    return ( cp, hole )
-
-        print(
-            "Could not insert segment without overlapping other segments"
-        )
-
-
-    #------------------------------------------------------------------------
- 
-    @classmethod
-    def _inline_intersects( cls, p1, q1, p2, q2 ):
-        """ Return true if line segments 'p1q1' and 'p2q2' intersect.
-            Adapted from:
-              http://www.geeksforgeeks.org/check-if-two-given-line-segments-intersect/
-        """
-
-        # Find the four orientations needed for general and special cases:
-        o1 = cls._inline_orientation( p1, q1, p2 )
-        o2 = cls._inline_orientation( p1, q1, q2 )
-        o3 = cls._inline_orientation( p2, q2, p1 )
-        o4 = cls._inline_orientation( p2, q2, q1 )
-
-        # General case:
-        if o1 != o2 and o3 != o4:
-            return True
-
-        # Special cases:
-        # p1, q1 and p2 are colinear and p2 lies on segment p1q1:
-        if o1 == 0 and cls._inline_on_segment( p1, p2, q1 ):
-            return True
-
-        # p1, q1 and p2 are colinear and q2 lies on segment p1q1:
-        if o2 == 0 and cls._inline_on_segment( p1, q2, q1 ):
-            return True
-
-        # p2, q2 and p1 are colinear and p1 lies on segment p2q2:
-        if o3 == 0 and cls._inline_on_segment( p2, p1, q2 ):
-            return True
-
-        # p2, q2 and q1 are colinear and q1 lies on segment p2q2:
-        if o4 == 0 and cls._inline_on_segment( p2, q1, q2 ):
-            return True
-
-        # Doesn't fall in any of the above cases:
-        return False
-
-
-    #------------------------------------------------------------------------
- 
-    @staticmethod
-    def _inline_on_segment( p, q, r ):
-        """ Given three colinear points p, q, and r, check if
-            point q lies on line segment pr. """
-
-        if (
-            q.x <= max( p.x, r.x ) and
-            q.x >= min( p.x, r.x ) and
-            q.y <= max( p.y, r.y ) and
-            q.y >= min( p.y, r.y )
-        ):
-            return True
-
-        return False
-
-
-    #------------------------------------------------------------------------
- 
-    @staticmethod
-    def _inline_orientation( p, q, r ):
-        """ Find orientation of ordered triplet (p, q, r).
-            Returns following values
-            0 --> p, q and r are colinear
-            1 --> Clockwise
-            2 --> Counterclockwise
-        """
-
-        val = (
-            ( q.y - p.y ) * ( r.x - q.x ) -
-            ( q.x - p.x ) * ( r.y - q.y )
-        )
-
-        if val == 0: return 0
-        if val > 0: return 1
-        return 2
-        
-
-    #------------------------------------------------------------------------
- 
-    @classmethod
-    def _inline_segments( cls, segments ):
-
-        if len( segments ) == 1:
-            return segments[ 0 ]
-
-        container = segments[ 0 ]
-        holes = segments[ 1 : ]
-        insertions = []
-
-        print( "Inlining segments..." )
-
-        #total_points = 0
-        #for segment in segments:
-            #print( "Segment has {} points".format( len( segment ) ) )
-            #total_points += len( segment )
-
-        # Find the insertion point for each hole:
-        for h in range( len( holes ) ):
-
-            insertion = cls._inline_find_insertion_point(
-                container, h, holes
-            )
-            if insertion is not None:
-                #print( "Insertion has {} points".format( len( insertion[ 1 ] ) ) )
-                insertions.append( insertion )
-
-        insertions.sort( key = lambda i: i[ 0 ] )
-
-        inlined = [ container[ 0 ] ]
-        cp = 1
-        for insertion in insertions:
-
-            #print( "Inserting at point {} (cp={})".format( insertion[ 0 ], cp ) )
-
-            while cp <= insertion[ 0 ]:
-                inlined.append( container[ cp ] )
-                cp += 1
-
-            if (
-                inlined[ -1 ].x == insertion[ 1 ][ 0 ].x and
-                inlined[ -1 ].y == insertion[ 1 ][ 0 ].y
-            ):
-                inlined += insertion[ 1 ][ 1 : -1 ]
-            else:
-                inlined += insertion[ 1 ]
-
-            inlined.append( svg.Point(
-                container[ cp - 1 ].x,
-                container[ cp - 1 ].y,
-            ) )
-
-        while cp < len( container ):
-            inlined.append( container[ cp ] )
-            cp += 1
-
-        #print(
-            #"Points before: {}, after: {}".format(
-                #total_points, len( inlined )
-            #)
-        #)
-
-        return inlined
 
 
     #------------------------------------------------------------------------
@@ -514,25 +553,6 @@ class Svg2ModExport( object ):
 
     #------------------------------------------------------------------------
 
-    def _transform_point( self, point, flip ):
-
-        transformed_point = svg.Point(
-            ( point.x + self.translation.x ) * self.scale_factor,
-            ( point.y + self.translation.y ) * self.scale_factor,
-        )
-
-        if flip:
-            transformed_point.x *= -1
-
-        if not self.use_mm:
-            transformed_point.x = int( round( transformed_point.x ) )
-            transformed_point.y = int( round( transformed_point.y ) )
-
-        return transformed_point
-
-
-    #------------------------------------------------------------------------
-
     def _write_items( self, items, flip, layer ):
 
         for item in items:
@@ -543,7 +563,21 @@ class Svg2ModExport( object ):
 
             elif isinstance( item, svg.Path ):
 
-                segments = item.segments( precision = self.precision )
+                segments = [
+                    PolygonSegment( segment )
+                    for segment in item.segments(
+                        precision = self.precision
+                    )
+                ]
+
+                for segment in segments:
+                    segment.process( flip, self )
+
+                if len( segments ) > 1:
+                    points = segments[ 0 ].inline( segments[ 1 : ] )
+
+                else:
+                    points = segments[ 0 ].points
 
                 fill, stroke, stroke_width = self._get_fill_stroke( item )
 
@@ -554,8 +588,7 @@ class Svg2ModExport( object ):
 
                 if fill:
                     self._write_polygon_filled(
-                        segments, flip, layer,
-                        stroke_width # For pretty format
+                        points, layer, stroke_width
                     )
 
                 # In pretty format, polygons with a fill and stroke are
@@ -563,7 +596,7 @@ class Svg2ModExport( object ):
                 if stroke and not ( self.pretty and fill ):
 
                     self._write_polygon_outline(
-                        segments, stroke_width, flip, layer
+                        points, layer, stroke_width
                     )
 
             else:
@@ -584,8 +617,8 @@ class Svg2ModExport( object ):
             side = "B"
 
         min_point, max_point = self.imported.svg.bbox()
-        min_point = self._transform_point( min_point, flip = False )
-        max_point = self._transform_point( max_point, flip = False )
+        min_point = self.transform_point( min_point, flip = False )
+        max_point = self.transform_point( max_point, flip = False )
 
         label_offset = 1200
         label_size = 600
@@ -662,38 +695,11 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
 
     #------------------------------------------------------------------------
 
-    def _write_polygon_filled(
-        self,
-        segments,
-        flip,
-        layer,
-        stroke_width = 0.0
-    ):
+    def _write_polygon_filled( self, points, layer, stroke_width = 0.0 ):
 
-        print( "    Writing filled polygon with {} segments".format( len( segments ) ) )
-
-        if len( segments ) > 2:
-            print(
-                "Warning: " +
-                "Not sure if Pcbnew supports more than 2 segments per path."
-            )
-
-        collapsed_segments = []
-
-        total_points = 0
-        for points in segments:
-
-            points = self._collapse_points( points, flip )
-            collapsed_segments.append( points )
-
-            num_points = len( points )
-            if num_points < 3:
-                print(
-                    "Warning: " +
-                    "Segment has only {} points (not a polygon?)".format( num_points )
-                )
-
-        inlined = self._inline_segments( collapsed_segments )
+        print( "    Writing filled polygon with {} points".format(
+            len( points ) )
+        )
 
         if self.pretty:
             self.output_file.write( "\n  (fp_poly\n    (pts \n" )
@@ -705,13 +711,13 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
                 pen = self._convert_decimil_to_mm( pen )
 
             self.output_file.write( "DP 0 0 0 0 {} {} {}\n".format(
-                len( inlined ),
+                len( points ),
                 pen,
                 layer
             ) )
             point_str = "Dl {} {}\n"
 
-        for point in inlined:
+        for point in points:
 
             self.output_file.write( point_str.format( point.x, point.y ) )
 
@@ -725,45 +731,43 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
 
     #------------------------------------------------------------------------
 
-    def _write_polygon_outline( self, segments, stroke_width, flip, layer ):
+    def _write_polygon_outline( self, points, layer, stroke_width ):
 
-        print( "    Writing polygon outline with {} segments".format( len( segments ) ) )
+        print( "    Writing polygon outline with {} points".format(
+            len( points )
+        ) )
 
-        for points in segments:
+        prior_point = None
+        for point in points:
 
-            points = self._collapse_points( points, flip )
+            if prior_point is not None:
 
-            prior_point = None
-            for point in points:
-
-                if prior_point is not None:
-
-                    if self.pretty:
-                        self.output_file.write(
-                            """\n  (fp_line
+                if self.pretty:
+                    self.output_file.write(
+                        """\n  (fp_line
     (start {} {})
     (end {} {})
     (layer {})
     (width {})
   )""".format(
-                                prior_point.x, prior_point.y,
-                                point.x, point.y,
-                                layer,
-                                stroke_width,
-                            )
-                        )
+    prior_point.x, prior_point.y,
+    point.x, point.y,
+    layer,
+    stroke_width,
+)
+                    )
 
-                    else:
-                        self.output_file.write( "DS {} {} {} {} {} {}\n".format(
-                            prior_point.x,
-                            prior_point.y,
-                            point.x,
-                            point.y,
-                            stroke_width,
-                            layer
-                        ) )
+                else:
+                    self.output_file.write( "DS {} {} {} {} {} {}\n".format(
+                        prior_point.x,
+                        prior_point.y,
+                        point.x,
+                        point.y,
+                        stroke_width,
+                        layer
+                    ) )
 
-                prior_point = point
+            prior_point = point
 
 
     #------------------------------------------------------------------------
@@ -818,6 +822,25 @@ $EndINDEX
     self.imported.file_name,
 )
             )
+
+
+    #------------------------------------------------------------------------
+
+    def transform_point( self, point, flip ):
+
+        transformed_point = svg.Point(
+            ( point.x + self.translation.x ) * self.scale_factor,
+            ( point.y + self.translation.y ) * self.scale_factor,
+        )
+
+        if flip:
+            transformed_point.x *= -1
+
+        if not self.use_mm:
+            transformed_point.x = int( round( transformed_point.x ) )
+            transformed_point.y = int( round( transformed_point.y ) )
+
+        return transformed_point
 
 
     #------------------------------------------------------------------------
