@@ -438,20 +438,22 @@ class Svg2ModExport( object ):
         stroke = True
         stroke_width = 0.0
 
-        for property in item.style.split( ";" ):
+        if item.style is not None and item.style != "":
 
-            nv = property.split( ":" );
-            name = nv[ 0 ].strip()
-            value = nv[ 1 ].strip()
+            for property in item.style.split( ";" ):
 
-            if name == "fill" and value == "none":
-                fill = False
+                nv = property.split( ":" );
+                name = nv[ 0 ].strip()
+                value = nv[ 1 ].strip()
 
-            elif name == "stroke" and value == "none":
-                stroke = False
+                if name == "fill" and value == "none":
+                    fill = False
 
-            elif name == "stroke-width":
-                stroke_width = float( value ) * 25.4 / 90.0
+                elif name == "stroke" and value == "none":
+                    stroke = False
+
+                elif name == "stroke-width":
+                    stroke_width = float( value ) * 25.4 / 90.0
 
         if not stroke:
             stroke_width = 0.0
