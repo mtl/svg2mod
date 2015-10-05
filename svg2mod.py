@@ -54,7 +54,7 @@ def main():
     if args.output_file_name[ - len( extension ) : ] != extension:
         args.output_file_name += extension
 
-    # Export the footprint:
+    # Create an exporter:
     if pretty:
         exported = Svg2ModExportPretty(
             imported,
@@ -62,23 +62,39 @@ def main():
             args.scale_factor,
             args.precision,
         )
-    elif args.format == 'legacy-update':
-        exported = Svg2ModExportLegacyUpdater(
-            imported,
-            args.output_file_name,
-            args.scale_factor,
-            args.precision,
-            include_reverse = not args.front_only,
-        )
+
     else:
-        exported = Svg2ModExportLegacy(
-            imported,
-            args.output_file_name,
-            args.scale_factor,
-            args.precision,
-            use_mm = use_mm,
-            include_reverse = not args.front_only,
-        )
+
+        # If the module file exists, try to read it:
+        exported = None
+        if os.path.isfile( args.output_file_name ):
+
+            try:
+                exported = Svg2ModExportLegacyUpdater(
+                    imported,
+                    args.output_file_name,
+                    args.scale_factor,
+                    args.precision,
+                    include_reverse = not args.front_only,
+                )
+
+            except Exception as e:
+                raise e
+                #print( e.message )
+                #exported = None
+
+        # Write the module file:
+        if exported is None:
+            exported = Svg2ModExportLegacy(
+                imported,
+                args.output_file_name,
+                args.scale_factor,
+                args.precision,
+                use_mm = use_mm,
+                include_reverse = not args.front_only,
+            )
+
+    # Export the footprint:
     exported.write()
 
 
@@ -982,10 +998,13 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
                 if module_name is not None:
                     self.loaded_modules[ module_name ] = module_lines
 
-            else:
-                if line[ : 11 ] != "$EndLIBRARY":
-                    print( "Expected $EndLIBRARY: [{}]".format( line ) )
+            elif line[ : 11 ] == "$EndLIBRARY":
                 break
+
+            else:
+                raise Exception(
+                    "Expected $EndLIBRARY: [{}]".format( line )
+                )
 
         #print( "Pre-index:" )
         #pprint( self.pre_index )
@@ -1024,8 +1043,9 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
 
             module_lines.append( line )
 
-        print( "Could not find end of module '{}'".format( module_name ) )
-        return None, None, index
+        raise Exception(
+            "Could not find end of module '{}'".format( module_name )
+        )
 
 
     #------------------------------------------------------------------------
@@ -1300,7 +1320,7 @@ def get_arguments():
         dest = 'front_only',
         action = 'store_const',
         const = True,
-        help = "omit output of back module (legacy output formats)",
+        help = "omit output of back module (legacy output format)",
         default = False,
     )
 
@@ -1309,8 +1329,8 @@ def get_arguments():
         type = str,
         dest = 'format',
         metavar = 'FORMAT',
-        choices = [ 'legacy', 'legacy-update', 'pretty' ],
-        help = "output module file format (legacy|legacy-update|pretty)",
+        choices = [ 'legacy', 'pretty' ],
+        help = "output module file format (legacy|pretty)",
         default = 'legacy',
     )
 

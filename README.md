@@ -24,9 +24,8 @@ optional arguments:
   -p PRECISION, --precision PRECISION
                         smoothness for approximating curves with line segments
                         (int)
-  --front-only          omit output of back module (legacy output formats)
-  --format FORMAT       output module file format (legacy|legacy-
-                        update|pretty)
+  --front-only          omit output of back module (legacy output format)
+  --format FORMAT       output module file format (legacy|pretty)
   --units UNITS         output units, if output format is legacy (decimil|mm)
 ```
 
