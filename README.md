@@ -23,7 +23,7 @@ optional arguments:
                         scale paths by this factor
   -p PRECISION, --precision PRECISION
                         smoothness for approximating curves with line segments
-                        (int)
+                        (float)
   --front-only          omit output of back module (legacy output format)
   --format FORMAT       output module file format (legacy|pretty)
   --units UNITS         output units, if output format is legacy (decimil|mm)

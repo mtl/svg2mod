@@ -485,7 +485,7 @@ class Svg2ModExport( object ):
         svg2mod_import,
         file_name,
         scale_factor = 1.0,
-        precision = 20,
+        precision = 20.0,
         use_mm = True,
     ):
         if use_mm:
@@ -734,7 +734,7 @@ class Svg2ModExportLegacy( Svg2ModExport ):
         svg2mod_import,
         file_name,
         scale_factor = 1.0,
-        precision = 20,
+        precision = 20.0,
         use_mm = True,
         include_reverse = True,
     ):
@@ -925,7 +925,7 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
         svg2mod_import,
         file_name,
         scale_factor = 1.0,
-        precision = 20,
+        precision = 20.0,
         include_reverse = True,
     ):
         self.file_name = file_name
@@ -1006,11 +1006,11 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
                     "Expected $EndLIBRARY: [{}]".format( line )
                 )
 
-        print( "Pre-index:" )
-        pprint( self.pre_index )
+        #print( "Pre-index:" )
+        #pprint( self.pre_index )
 
-        print( "Post-index:" )
-        pprint( self.post_index )
+        #print( "Post-index:" )
+        #pprint( self.post_index )
 
         #print( "Loaded modules:" )
         #pprint( self.loaded_modules )
@@ -1315,11 +1315,11 @@ def get_arguments():
 
     parser.add_argument(
         '-p', '--precision',
-        type = int,
+        type = float,
         dest = 'precision',
         metavar = 'PRECISION',
-        help = "smoothness for approximating curves with line segments (int)",
-        default = 10,
+        help = "smoothness for approximating curves with line segments (float)",
+        default = 10.0,
     )
 
     parser.add_argument(
