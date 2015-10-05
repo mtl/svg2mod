@@ -55,15 +55,30 @@ def main():
         args.output_file_name += extension
 
     # Export the footprint:
-    exported = Svg2ModExport(
-        imported,
-        args.output_file_name,
-        args.scale_factor,
-        args.precision,
-        pretty = pretty,
-        use_mm = use_mm,
-        include_reverse = not args.front_only,
-    )
+    if pretty:
+        exported = Svg2ModExportPretty(
+            imported,
+            args.output_file_name,
+            args.scale_factor,
+            args.precision,
+        )
+    elif args.format == 'legacy-update':
+        exported = Svg2ModExportLegacyUpdater(
+            imported,
+            args.output_file_name,
+            args.scale_factor,
+            args.precision,
+            include_reverse = not args.front_only,
+        )
+    else:
+        exported = Svg2ModExportLegacy(
+            imported,
+            args.output_file_name,
+            args.scale_factor,
+            args.precision,
+            use_mm = use_mm,
+            include_reverse = not args.front_only,
+        )
     exported.write()
 
 
@@ -343,7 +358,7 @@ class PolygonSegment( object ):
 
     # Apply all transformations and rounding, then remove duplicate
     # consecutive points along the path.
-    def process( self, flip, transformer ):
+    def process( self, transformer, flip ):
 
         points = []
         for point in self.points:
@@ -397,23 +412,6 @@ class Svg2ModImport( object ):
 #----------------------------------------------------------------------------
 
 class Svg2ModExport( object ):
-
-    layer_map = {
-        #'name' : [ front, back, pretty-name ],
-        'Cu' : [ 15, 0, "Cu" ],
-        'Adhes' : [ 17, 16, "Adhes" ],
-        'Paste' : [ 19, 18, "Paste" ],
-        'SilkS' : [ 21, 20, "SilkS" ],
-        'Mask' : [ 23, 22, "Mask" ],
-        'Dwgs\\.User' : [ 24, 24, None ],
-        'Cmts\\.User' : [ 25, 25, None ],
-        'Eco1\\.User' : [ 26, 26, None ],
-        'Eco2\\.User' : [ 27, 27, None ],
-        'Edge\\.Cuts' : [ 28, 28, None ],
-        'CrtYd' : [ None, None, "CrtYd" ],
-        'Fab' : [ None, None, "Fab" ],
-    }
-
 
     #------------------------------------------------------------------------
 
@@ -472,11 +470,9 @@ class Svg2ModExport( object ):
         file_name,
         scale_factor = 1.0,
         precision = 20,
-        pretty = True,
         use_mm = True,
-        include_reverse = True,
     ):
-        if pretty or use_mm:
+        if use_mm:
             # 25.4 mm/in; Inkscape uses 90 DPI:
             scale_factor *= 25.4 / 90.0
             use_mm = True
@@ -488,9 +484,7 @@ class Svg2ModExport( object ):
         self.file_name = file_name
         self.scale_factor = scale_factor
         self.precision = precision
-        self.pretty = pretty
         self.use_mm = use_mm
-        self.include_reverse = include_reverse
 
 
     #------------------------------------------------------------------------
@@ -511,31 +505,14 @@ class Svg2ModExport( object ):
 
     #------------------------------------------------------------------------
 
-    def _get_module_name( self, front = None ):
-
-        if not self.pretty and self.include_reverse:
-            if front:
-                return self.imported.module_name + "-Front"
-            else:
-                return self.imported.module_name + "-Back"
-
-        return self.imported.module_name
-
-
-    #------------------------------------------------------------------------
-
     # Find and keep only the layers of interest.
     def _prune( self, items = None ):
 
         if items is None:
 
             self.layers = {}
-            for name, layer_info in self.layer_map.iteritems():
-                if (
-                    ( self.pretty and layer_info[ 2 ] is not None ) or
-                    ( not self.pretty and layer_info[ 0 ] is not None )
-                ):
-                    self.layers[ name ] = None
+            for name in self.layer_map.iterkeys():
+                self.layers[ name ] = None
 
             items = self.imported.svg.items
             self.imported.svg.items = []
@@ -558,12 +535,12 @@ class Svg2ModExport( object ):
 
     #------------------------------------------------------------------------
 
-    def _write_items( self, items, flip, layer ):
+    def _write_items( self, items, layer, flip = False ):
 
         for item in items:
 
             if isinstance( item, svg.Group ):
-                self._write_items( item.items, flip, layer )
+                self._write_items( item.items, layer, flip )
                 continue
 
             elif isinstance( item, svg.Path ):
@@ -576,7 +553,7 @@ class Svg2ModExport( object ):
                 ]
 
                 for segment in segments:
-                    segment.process( flip, self )
+                    segment.process( self, flip )
 
                 if len( segments ) > 1:
                     points = segments[ 0 ].inline( segments[ 1 : ] )
@@ -591,18 +568,13 @@ class Svg2ModExport( object ):
                         stroke_width
                     )
 
-                if fill:
-                    self._write_polygon_filled(
-                        points, layer, stroke_width
-                    )
+                print( "    Writing polygon with {} points".format(
+                    len( points ) )
+                )
 
-                # In pretty format, polygons with a fill and stroke are
-                # drawn with the filled polygon above:
-                if stroke and not ( self.pretty and fill ):
-
-                    self._write_polygon_outline(
-                        points, layer, stroke_width
-                    )
+                self._write_polygon(
+                    points, layer, fill, stroke, stroke_width
+                )
 
             else:
                 print( "Unsupported SVG element: {}".format(
@@ -615,11 +587,6 @@ class Svg2ModExport( object ):
     def _write_module( self, front ):
 
         module_name = self._get_module_name( front )
-
-        if front:
-            side = "F"
-        else:
-            side = "B"
 
         min_point, max_point = self.imported.svg.bbox()
         min_point = self.transform_point( min_point, flip = False )
@@ -638,200 +605,55 @@ class Svg2ModExport( object ):
             reference_y = min_point.y - label_offset
             value_y = max_point.y + label_offset
 
-        if self.pretty:
-
-            self.output_file.write(
-"""  (fp_text reference {0} (at 0 {1}) (layer {2}.SilkS) hide
-    (effects (font (size {3} {3}) (thickness {4})))
-  )
-  (fp_text value {5} (at 0 {6}) (layer {2}.SilkS) hide
-    (effects (font (size {3} {3}) (thickness {4})))
-  )""".format(
-
-    module_name, #0
-    reference_y, #1
-    side, #2
-    label_size, #3
-    label_pen, #4
-    self.imported.module_value, #5
-    value_y, #6
-)
-            )
-
-        else:
-
-            self.output_file.write( """$MODULE {0}
-Po 0 0 0 {6} 00000000 00000000 ~~
-Li {0}
-T0 0 {1} {2} {2} 0 {3} N I 21 "{0}"
-T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
-""".format(
-    module_name,
-    reference_y,
-    label_size,
-    label_pen,
-    self.imported.module_value,
-    value_y,
-    15, # Seems necessary
-)
-            )
+        self._write_module_header(
+            label_size, label_pen,
+            reference_y, value_y,
+            front,
+        )
 
         for name, group in self.layers.iteritems():
 
             if group is None: continue
 
-            layer_info = self.layer_map[ name ]
-            if self.pretty:
-                layer = side + "." + layer_info[ 2 ]
-
-            else:
-                layer = layer_info[ 0 ]
-                if not front and layer_info[ 1 ] is not None:
-                    layer = layer_info[ 1 ]
+            layer = self._get_layer_name( name, front )
 
             #print( "  Writing layer: {}".format( name ) )
-            self._write_items( group.items, not front, layer )
+            self._write_items( group.items, layer, not front )
 
-        if self.pretty:
-            self.output_file.write( "\n)" )
-        else:
-            self.output_file.write( "$EndMODULE {0}\n".format( module_name ) )
+        self._write_module_footer( front )
 
 
     #------------------------------------------------------------------------
 
     def _write_polygon_filled( self, points, layer, stroke_width = 0.0 ):
 
-        print( "    Writing filled polygon with {} points".format(
-            len( points ) )
-        )
-
-        if self.pretty:
-            self.output_file.write( "\n  (fp_poly\n    (pts \n" )
-            point_str = "      (xy {} {})\n"
-
-        else:
-            pen = 1
-            if self.use_mm:
-                pen = self._convert_decimil_to_mm( pen )
-
-            self.output_file.write( "DP 0 0 0 0 {} {} {}\n".format(
-                len( points ),
-                pen,
-                layer
-            ) )
-            point_str = "Dl {} {}\n"
+        self._write_polygon_header( points, layer )
 
         for point in points:
+            self._write_polygon_point( point )
 
-            self.output_file.write( point_str.format( point.x, point.y ) )
-
-        if self.pretty:
-            self.output_file.write(
-                "    )\n    (layer {})\n    (width {})\n  )".format(
-                    layer, stroke_width
-                )
-            )
+        self._write_polygon_footer( layer, stroke_width )
 
 
     #------------------------------------------------------------------------
 
     def _write_polygon_outline( self, points, layer, stroke_width ):
 
-        print( "    Writing polygon outline with {} points".format(
-            len( points )
-        ) )
-
         prior_point = None
         for point in points:
 
             if prior_point is not None:
 
-                if self.pretty:
-                    self.output_file.write(
-                        """\n  (fp_line
-    (start {} {})
-    (end {} {})
-    (layer {})
-    (width {})
-  )""".format(
-    prior_point.x, prior_point.y,
-    point.x, point.y,
-    layer,
-    stroke_width,
-)
-                    )
-
-                else:
-                    self.output_file.write( "DS {} {} {} {} {} {}\n".format(
-                        prior_point.x,
-                        prior_point.y,
-                        point.x,
-                        point.y,
-                        stroke_width,
-                        layer
-                    ) )
+                self._write_polygon_segment(
+                    prior_point, point, layer, stroke_width
+                )
 
             prior_point = point
 
 
     #------------------------------------------------------------------------
 
-    def _write_library_intro( self ):
-
-        if self.pretty:
-
-            print( "Writing module file: {}".format( self.file_name ) )
-            self.output_file = open( self.file_name, 'w' )
-
-            self.output_file.write( """(module {0} (layer F.Cu) (tedit {1:8X})
-  (attr smd)
-  (descr "{2}")
-  (tags {3})
-""".format(
-    self.imported.module_name, #0
-    int( round( os.path.getctime( #1
-        self.imported.file_name
-    ) ) ),
-    "Imported from {}".format( self.imported.file_name ), #2
-    "svg2mod", #3
-)
-            )
-
-        else: # legacy format:
-
-            print( "Writing module file: {}".format( self.file_name ) )
-            self.output_file = open( self.file_name, 'w' )
-
-            modules_list = self._get_module_name( front = True )
-            if self.include_reverse:
-                modules_list += (
-                    "\n" + 
-                    self._get_module_name( front = False )
-                )
-
-            units = ""
-            if self.use_mm: units = "\nUnits mm"
-
-            self.output_file.write( """PCBNEW-LibModule-V1  {0}{1}
-$INDEX
-{2}
-$EndINDEX
-#
-# {3}
-#
-""".format(
-    datetime.datetime.now().strftime( "%a %d %b %Y %I:%M:%S %p %Z" ),
-    units,
-    modules_list,
-    self.imported.file_name,
-)
-            )
-
-
-    #------------------------------------------------------------------------
-
-    def transform_point( self, point, flip ):
+    def transform_point( self, point, flip = False ):
 
         transformed_point = svg.Point(
             ( point.x + self.translation.x ) * self.scale_factor,
@@ -857,14 +679,12 @@ $EndINDEX
         # Must come after pruning:
         translation = self._calculate_translation()
 
+        print( "Writing module file: {}".format( self.file_name ) )
+        self.output_file = open( self.file_name, 'w' )
+
         self._write_library_intro()
 
-        self._write_module( front = True )
-        if not self.pretty and self.include_reverse:
-            self._write_module( front = False )
-
-        if not self.pretty:
-            self.output_file.write( "$EndLIBRARY" )
+        self._write_modules()
 
         self.output_file.close()
         self.output_file = None
@@ -874,10 +694,550 @@ $EndINDEX
 
 #----------------------------------------------------------------------------
 
+class Svg2ModExportLegacy( Svg2ModExport ):
+
+    layer_map = {
+        #'inkscape-name' : [ kicad-front, kicad-back ],
+        'Cu' : [ 15, 0 ],
+        'Adhes' : [ 17, 16 ],
+        'Paste' : [ 19, 18 ],
+        'SilkS' : [ 21, 20 ],
+        'Mask' : [ 23, 22 ],
+        'Dwgs\\.User' : [ 24, 24 ],
+        'Cmts\\.User' : [ 25, 25 ],
+        'Eco1\\.User' : [ 26, 26 ],
+        'Eco2\\.User' : [ 27, 27 ],
+        'Edge\\.Cuts' : [ 28, 28 ],
+    }
+
+
+    #------------------------------------------------------------------------
+
+    def __init__(
+        self,
+        svg2mod_import,
+        file_name,
+        scale_factor = 1.0,
+        precision = 20,
+        use_mm = True,
+        include_reverse = True,
+    ):
+        super( Svg2ModExportLegacy, self ).__init__(
+            svg2mod_import,
+            file_name,
+            scale_factor,
+            precision,
+            use_mm,
+        )
+
+        self.include_reverse = include_reverse
+
+
+    #------------------------------------------------------------------------
+
+    def _get_layer_name( self, name, front ):
+
+        layer_info = self.layer_map[ name ]
+        layer = layer_info[ 0 ]
+        if not front and layer_info[ 1 ] is not None:
+            layer = layer_info[ 1 ]
+
+        return layer
+
+
+    #------------------------------------------------------------------------
+
+    def _get_module_name( self, front = None ):
+
+        if self.include_reverse:
+            if front:
+                return self.imported.module_name + "-Front"
+            else:
+                return self.imported.module_name + "-Back"
+
+        return self.imported.module_name
+
+
+    #------------------------------------------------------------------------
+
+    def _write_library_intro( self ):
+
+        modules_list = self._get_module_name( front = True )
+        if self.include_reverse:
+            modules_list += (
+                "\n" + 
+                self._get_module_name( front = False )
+            )
+
+        units = ""
+        if self.use_mm:
+            units = "\nUnits mm"
+
+        self.output_file.write( """PCBNEW-LibModule-V1  {0}{1}
+$INDEX
+{2}
+$EndINDEX
+#
+# {3}
+#
+""".format(
+    datetime.datetime.now().strftime( "%a %d %b %Y %I:%M:%S %p %Z" ),
+    units,
+    modules_list,
+    self.imported.file_name,
+)
+        )
+
+
+    #------------------------------------------------------------------------
+
+    def _write_module_header(
+        self,
+        label_size,
+        label_pen,
+        reference_y,
+        value_y,
+        front,
+    ):
+
+        self.output_file.write( """$MODULE {0}
+Po 0 0 0 {6} 00000000 00000000 ~~
+Li {0}
+T0 0 {1} {2} {2} 0 {3} N I 21 "{0}"
+T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
+""".format(
+    self._get_module_name( front ),
+    reference_y,
+    label_size,
+    label_pen,
+    self.imported.module_value,
+    value_y,
+    15, # Seems necessary
+)
+        )
+
+
+    #------------------------------------------------------------------------
+
+    def _write_module_footer( self, front ):
+
+        self.output_file.write(
+            "$EndMODULE {0}\n".format( self._get_module_name( front ) )
+        )
+
+
+    #------------------------------------------------------------------------
+
+    def _write_modules( self ):
+
+        self._write_module( front = True )
+        if self.include_reverse:
+            self._write_module( front = False )
+
+        self.output_file.write( "$EndLIBRARY" )
+
+
+    #------------------------------------------------------------------------
+
+    def _write_polygon( self, points, layer, fill, stroke, stroke_width ):
+
+        if fill:
+            self._write_polygon_filled(
+                points, layer
+            )
+
+        if stroke:
+
+            self._write_polygon_outline(
+                points, layer, stroke_width
+            )
+
+
+    #------------------------------------------------------------------------
+
+    def _write_polygon_footer( self, layer, stroke_width ):
+
+        pass
+
+
+    #------------------------------------------------------------------------
+
+    def _write_polygon_header( self, points, layer ):
+
+        pen = 1
+        if self.use_mm:
+            pen = self._convert_decimil_to_mm( pen )
+
+        self.output_file.write( "DP 0 0 0 0 {} {} {}\n".format(
+            len( points ),
+            pen,
+            layer
+        ) )
+
+
+    #------------------------------------------------------------------------
+
+    def _write_polygon_point( self, point ):
+
+            self.output_file.write(
+                "Dl {} {}\n".format( point.x, point.y )
+            )
+
+
+    #------------------------------------------------------------------------
+
+    def _write_polygon_segment( self, p, q, layer, stroke_width ):
+
+        self.output_file.write( "DS {} {} {} {} {} {}\n".format(
+            p.x, p.y,
+            q.x, q.y,
+            stroke_width,
+            layer
+        ) )
+
+
+    #------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------
+
+class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
+
+    #------------------------------------------------------------------------
+
+    def __init__(
+        self,
+        svg2mod_import,
+        file_name,
+        scale_factor = 1.0,
+        precision = 20,
+        include_reverse = True,
+    ):
+        self.file_name = file_name
+        use_mm = self._parse_output_file()
+
+        super( Svg2ModExportLegacyUpdater, self ).__init__(
+            svg2mod_import,
+            file_name,
+            scale_factor,
+            precision,
+            use_mm,
+            include_reverse,
+        )
+
+
+    #------------------------------------------------------------------------
+
+    def _parse_output_file( self ):
+
+        print( "Parsing module file: {}".format( self.file_name ) )
+        module_file = open( self.file_name, 'r' )
+        lines = module_file.readlines()
+        module_file.close()
+
+        self.loaded_modules = {}
+        self.post_index = []
+        self.pre_index = []
+        use_mm = False
+
+        index = 0
+
+        # Find the start of the index:
+        while index < len( lines ):
+
+            line = lines[ index ]
+            index += 1
+            self.pre_index.append( line )
+            if line[ : 6 ] == "$INDEX":
+                break
+
+            m = re.match( "Units[\s]+mm[\s]*", line )
+            if m is not None:
+                print( "Use mm detected" )
+                use_mm = True
+
+        # Read the index:
+        while index < len( lines ):
+
+            line = lines[ index ]
+            index += 1
+            if line[ : 9 ] == "$EndINDEX":
+                break
+            self.loaded_modules[ line.strip() ] = []
+
+        # Read up until the first module:
+        while index < len( lines ):
+
+            line = lines[ index ]
+            if line[ : 7 ] == "$MODULE":
+                break
+            index += 1
+            self.post_index.append( line )
+
+        # Read modules:
+        while index < len( lines ):
+
+            line = lines[ index ]
+            if line[ : 7 ] == "$MODULE":
+                module_name, module_lines, index = self._read_module( lines, index )
+                if module_name is not None:
+                    self.loaded_modules[ module_name ] = module_lines
+
+            else:
+                if line[ : 11 ] != "$EndLIBRARY":
+                    print( "Expected $EndLIBRARY: [{}]".format( line ) )
+                break
+
+        #print( "Pre-index:" )
+        #pprint( self.pre_index )
+
+        #print( "Post-index:" )
+        #pprint( self.post_index )
+
+        #print( "Loaded modules:" )
+        #pprint( self.loaded_modules )
+
+        return use_mm
+
+
+    #------------------------------------------------------------------------
+
+    def _read_module( self, lines, index ):
+
+        # Read module name:
+        m = re.match( r'\$MODULE[\s]+([^\s]+)[\s]*', lines[ index ] )
+        module_name = m.group( 1 )
+
+        print( "Reading module {}".format( module_name ) )
+
+        index += 1
+        module_lines = []
+        while index < len( lines ):
+
+            line = lines[ index ]
+            index += 1
+
+            m = re.match(
+                r'\$EndMODULE[\s]+' + module_name + r'[\s]*', line
+            )
+            if m is not None:
+                return module_name, module_lines, index
+
+            module_lines.append( line )
+
+        print( "Could not find end of module '{}'".format( module_name ) )
+        return None, None, index
+
+
+    #------------------------------------------------------------------------
+
+    def _write_library_intro( self ):
+
+        # Write pre-index:
+        self.output_file.writelines( self.pre_index )
+
+        self.loaded_modules[ self._get_module_name( front = True ) ] = None
+        if self.include_reverse:
+            self.loaded_modules[
+                self._get_module_name( front = False )
+            ] = None
+
+        # Write index:
+        for module_name in self.loaded_modules.iterkeys():
+            self.output_file.write( module_name + "\n" )
+
+        # Write post-index:
+        self.output_file.writelines( self.post_index )
+
+        # Write unaffected modules:
+        for module_name, module_lines in self.loaded_modules.iteritems():
+
+            if module_lines is not None:
+
+                self.output_file.write(
+                    "$MODULE {}\n".format( module_name )
+                )
+                self.output_file.writelines( module_lines )
+                self.output_file.write(
+                    "$EndMODULE {}\n".format( module_name )
+                )
+
+
+    #------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------
+
+class Svg2ModExportPretty( Svg2ModExport ):
+
+    layer_map = {
+        #'inkscape-name' : kicad-name,
+        'Cu' : "Cu",
+        'Adhes' : "Adhes",
+        'Paste' : "Paste",
+        'SilkS' : "SilkS",
+        'Mask' : "Mask",
+        'CrtYd' : "CrtYd",
+        'Fab' : "Fab",
+    }
+
+
+    #------------------------------------------------------------------------
+
+    def _get_layer_name( self, name, front ):
+
+        if front:
+            return "F." + self.layer_map[ name ]
+        else:
+            return "B." + self.layer_map[ name ]
+
+
+    #------------------------------------------------------------------------
+
+    def _get_module_name( self, front = None ):
+
+        return self.imported.module_name
+
+
+    #------------------------------------------------------------------------
+
+    def _write_library_intro( self ):
+
+        self.output_file.write( """(module {0} (layer F.Cu) (tedit {1:8X})
+  (attr smd)
+  (descr "{2}")
+  (tags {3})
+""".format(
+    self.imported.module_name, #0
+    int( round( os.path.getctime( #1
+        self.imported.file_name
+    ) ) ),
+    "Imported from {}".format( self.imported.file_name ), #2
+    "svg2mod", #3
+)
+        )
+
+
+    #------------------------------------------------------------------------
+
+    def _write_module_footer( self, front ):
+
+        self.output_file.write( "\n)" )
+
+
+    #------------------------------------------------------------------------
+
+    def _write_module_header(
+        self,
+        label_size,
+        label_pen,
+        reference_y,
+        value_y,
+        front,
+    ):
+        if front:
+            side = "F"
+        else:
+            side = "B"
+
+        self.output_file.write(
+"""  (fp_text reference {0} (at 0 {1}) (layer {2}.SilkS) hide
+    (effects (font (size {3} {3}) (thickness {4})))
+  )
+  (fp_text value {5} (at 0 {6}) (layer {2}.SilkS) hide
+    (effects (font (size {3} {3}) (thickness {4})))
+  )""".format(
+
+    self._get_module_name(), #0
+    reference_y, #1
+    side, #2
+    label_size, #3
+    label_pen, #4
+    self.imported.module_value, #5
+    value_y, #6
+)
+        )
+
+
+    #------------------------------------------------------------------------
+
+    def _write_modules( self ):
+
+        self._write_module( front = True )
+
+
+    #------------------------------------------------------------------------
+
+    def _write_polygon( self, points, layer, fill, stroke, stroke_width ):
+
+        if fill:
+            self._write_polygon_filled(
+                points, layer, stroke_width
+            )
+
+        # Polygons with a fill and stroke are drawn with the filled polygon
+        # above:
+        if stroke and not fill:
+
+            self._write_polygon_outline(
+                points, layer, stroke_width
+            )
+
+
+    #------------------------------------------------------------------------
+
+    def _write_polygon_footer( self, layer, stroke_width ):
+
+        self.output_file.write(
+            "    )\n    (layer {})\n    (width {})\n  )".format(
+                layer, stroke_width
+            )
+        )
+
+
+    #------------------------------------------------------------------------
+
+    def _write_polygon_header( self, points, layer ):
+
+            self.output_file.write( "\n  (fp_poly\n    (pts \n" )
+
+
+    #------------------------------------------------------------------------
+
+    def _write_polygon_point( self, point ):
+
+            self.output_file.write(
+                "      (xy {} {})\n".format( point.x, point.y )
+            )
+
+
+    #------------------------------------------------------------------------
+
+    def _write_polygon_segment( self, p, q, layer, stroke_width ):
+
+        self.output_file.write(
+            """\n  (fp_line
+    (start {} {})
+    (end {} {})
+    (layer {})
+    (width {})
+  )""".format(
+    p.x, p.y,
+    q.x, q.y,
+    layer,
+    stroke_width,
+)
+        )
+
+
+    #------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------
+
 def get_arguments():
 
     parser = argparse.ArgumentParser(
-        description = 'svg2mod.'
+        description = (
+            'Convert Inkscape SVG drawings to KiCad footprint modules.'
+        )
     )
 
     #------------------------------------------------------------------------
@@ -940,7 +1300,7 @@ def get_arguments():
         dest = 'front_only',
         action = 'store_const',
         const = True,
-        help = "omit output of back module",
+        help = "omit output of back module (legacy output formats)",
         default = False,
     )
 
@@ -949,8 +1309,8 @@ def get_arguments():
         type = str,
         dest = 'format',
         metavar = 'FORMAT',
-        choices = [ 'legacy', 'pretty' ],
-        help = "output module file format (legacy|pretty)",
+        choices = [ 'legacy', 'legacy-update', 'pretty' ],
+        help = "output module file format (legacy|legacy-update|pretty)",
         default = 'legacy',
     )
 
@@ -960,7 +1320,7 @@ def get_arguments():
         dest = 'units',
         metavar = 'UNITS',
         choices = [ 'decimil', 'mm' ],
-        help = "Output units, if format is legacy (decimil|mm)",
+        help = "output units, if output format is legacy (decimil|mm)",
         default = 'mm',
     )
 

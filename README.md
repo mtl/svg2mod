@@ -7,6 +7,8 @@ usage: svg2mod.py [-h] -i FILENAME [-o FILENAME] [--name NAME] [--value VALUE]
                   [-f FACTOR] [-p PRECISION] [--front-only] [--format FORMAT]
                   [--units UNITS]
 
+Convert Inkscape SVG drawings to KiCad footprint modules.
+
 optional arguments:
   -h, --help            show this help message and exit
   -i FILENAME, --input-file FILENAME
@@ -22,9 +24,10 @@ optional arguments:
   -p PRECISION, --precision PRECISION
                         smoothness for approximating curves with line segments
                         (int)
-  --front-only          omit output of back module
-  --format FORMAT       output module file format (legacy|pretty)
-  --units UNITS         Output units, if format is legacy (decimil|mm)
+  --front-only          omit output of back module (legacy output formats)
+  --format FORMAT       output module file format (legacy|legacy-
+                        update|pretty)
+  --units UNITS         output units, if output format is legacy (decimil|mm)
 ```
 
 ## SVG Files
