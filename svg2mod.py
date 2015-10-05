@@ -968,16 +968,16 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
 
             m = re.match( "Units[\s]+mm[\s]*", line )
             if m is not None:
-                print( "Use mm detected" )
+                print( "  Use mm detected" )
                 use_mm = True
 
         # Read the index:
         while index < len( lines ):
 
             line = lines[ index ]
-            index += 1
             if line[ : 9 ] == "$EndINDEX":
                 break
+            index += 1
             self.loaded_modules[ line.strip() ] = []
 
         # Read up until the first module:
@@ -1006,11 +1006,11 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
                     "Expected $EndLIBRARY: [{}]".format( line )
                 )
 
-        #print( "Pre-index:" )
-        #pprint( self.pre_index )
+        print( "Pre-index:" )
+        pprint( self.pre_index )
 
-        #print( "Post-index:" )
-        #pprint( self.post_index )
+        print( "Post-index:" )
+        pprint( self.post_index )
 
         #print( "Loaded modules:" )
         #pprint( self.loaded_modules )
@@ -1026,7 +1026,7 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
         m = re.match( r'\$MODULE[\s]+([^\s]+)[\s]*', lines[ index ] )
         module_name = m.group( 1 )
 
-        print( "Reading module {}".format( module_name ) )
+        print( "  Reading module {}".format( module_name ) )
 
         index += 1
         module_lines = []
@@ -1062,14 +1062,21 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
             ] = None
 
         # Write index:
-        for module_name in self.loaded_modules.iterkeys():
+        for module_name in sorted(
+            self.loaded_modules.iterkeys(),
+            key = str.lower
+        ):
             self.output_file.write( module_name + "\n" )
 
         # Write post-index:
         self.output_file.writelines( self.post_index )
 
         # Write unaffected modules:
-        for module_name, module_lines in self.loaded_modules.iteritems():
+        for module_name in sorted(
+            self.loaded_modules.iterkeys(),
+            key = str.lower
+        ):
+            module_lines = self.loaded_modules[ module_name ]
 
             if module_lines is not None:
 
