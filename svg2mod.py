@@ -150,6 +150,17 @@ class LineSegment( object ):
 
 
     #------------------------------------------------------------------------
+
+    def connects( self, segment ):
+
+        if self.q.x == segment.p.x and self.q.y == segment.p.y: return True
+        if self.q.x == segment.q.x and self.q.y == segment.q.y: return True
+        if self.p.x == segment.p.x and self.p.y == segment.p.y: return True
+        if self.p.x == segment.q.x and self.p.y == segment.q.y: return True
+        return False
+
+
+    #------------------------------------------------------------------------
  
     def intersects( self, segment ):
         """ Return true if line segments 'p1q1' and 'p2q2' intersect.
@@ -192,15 +203,6 @@ class LineSegment( object ):
 
     #------------------------------------------------------------------------
 
-    def q_connects( self, segment ):
-
-        if self.q.x == segment.p.x and self.q.y == segment.p.y: return True
-        if self.q.x == segment.q.x and self.q.y == segment.q.y: return True
-        return False
-
-
-    #------------------------------------------------------------------------
-
     def q_next( self, q ):
 
         self.p = self.q
@@ -236,28 +238,40 @@ class PolygonSegment( object ):
     # cross the visible inner space within any hole.
     def _find_insertion_point( self, hole, holes ):
 
+        #print( "      Finding insertion point.  {} holes".format( len( holes ) ) )
+
         # Try the next point on the container:
         for cp in range( len( self.points ) ):
             container_point = self.points[ cp ]
 
+            #print( "      Trying container point {}".format( cp ) )
+
             # Try the next point on the hole:
             for hp in range( len( hole.points ) - 1 ):
                 hole_point = hole.points[ hp ]
+
+                #print( "      Trying hole point {}".format( cp ) )
 
                 bridge = LineSegment( container_point, hole_point )
 
                 # Check for intersection with each other hole:
                 for other_hole in holes:
 
+                    #print( "      Trying other hole.  Check = {}".format( hole == other_hole ) )
+
                     # If the other hole intersects, don't bother checking
                     # remaining holes:
                     if other_hole.intersects(
                         bridge,
-                        check_connects = hole == other_hole
+                        check_connects = (
+                            other_hole == hole or other_hole == self
+                        )
                     ): break
 
+                    #print( "        Hole does not intersect." )
+
                 else:
-                    #print( "Found insertion point: {}, {}".format( cp, hp ) )
+                    print( "      Found insertion point: {}, {}".format( cp, hp ) )
 
                     # No other holes intersected, so this insertion point
                     # is acceptable:
@@ -298,15 +312,16 @@ class PolygonSegment( object ):
         if len( segments ) < 1:
             return self.points
 
-        #print( "    Inlining segments..." )
+        print( "    Inlining {} segments...".format( len( segments ) ) )
 
+        all_segments = segments[ : ] + [ self ]
         insertions = []
 
         # Find the insertion point for each hole:
         for hole in segments:
 
             insertion = self._find_insertion_point(
-                hole, segments
+                hole, all_segments
             )
             if insertion is not None:
                 insertions.append( insertion )
@@ -358,7 +373,7 @@ class PolygonSegment( object ):
 
                 if (
                     check_connects and
-                    line_segment.q_connects( hole_segment )
+                    line_segment.connects( hole_segment )
                 ): continue
 
                 if line_segment.intersects( hole_segment ):
@@ -392,15 +407,21 @@ class PolygonSegment( object ):
             points[ 0 ].x != points[ -1 ].x or
             points[ 0 ].y != points[ -1 ].y
         ):
-            #print( "Warning: Closing polygon. start=({}, {}) end=({}, {})".format(
-                #points[ 0 ].x, points[ 0 ].y,
-                #points[ -1 ].x, points[ -1 ].y,
-            #) )
+            print( "Warning: Closing polygon. start=({}, {}) end=({}, {})".format(
+                points[ 0 ].x, points[ 0 ].y,
+                points[ -1 ].x, points[ -1 ].y,
+            ) )
 
             points.append( svg.Point(
                 points[ 0 ].x,
                 points[ 0 ].y,
             ) )
+
+        #else:
+            #print( "Polygon closed: start=({}, {}) end=({}, {})".format(
+                #points[ 0 ].x, points[ 0 ].y,
+                #points[ -1 ].x, points[ -1 ].y,
+            #) )
 
         self.points = points
 
@@ -541,7 +562,7 @@ class Svg2ModExport( object ):
             for name in self.layers.iterkeys():
                 #if re.search( name, item.name, re.I ):
                 if name == item.name:
-                    print( "Found layer: {}".format( item.name ) )
+                    print( "Found SVG layer: {}".format( item.name ) )
                     self.imported.svg.items.append( item )
                     self.layers[ name ] = item
                     break
@@ -679,7 +700,10 @@ class Svg2ModExport( object ):
         if flip:
             transformed_point.x *= -1
 
-        if not self.use_mm:
+        if self.use_mm:
+            transformed_point.x = round( transformed_point.x, 12 )
+            transformed_point.y = round( transformed_point.y, 12 )
+        else:
             transformed_point.x = int( round( transformed_point.x ) )
             transformed_point.y = int( round( transformed_point.y ) )
 
