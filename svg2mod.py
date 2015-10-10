@@ -407,10 +407,10 @@ class PolygonSegment( object ):
             points[ 0 ].x != points[ -1 ].x or
             points[ 0 ].y != points[ -1 ].y
         ):
-            print( "Warning: Closing polygon. start=({}, {}) end=({}, {})".format(
-                points[ 0 ].x, points[ 0 ].y,
-                points[ -1 ].x, points[ -1 ].y,
-            ) )
+            #print( "Warning: Closing polygon. start=({}, {}) end=({}, {})".format(
+                #points[ 0 ].x, points[ 0 ].y,
+                #points[ -1 ].x, points[ -1 ].y,
+            #) )
 
             points.append( svg.Point(
                 points[ 0 ].x,
