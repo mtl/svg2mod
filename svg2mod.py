@@ -765,11 +765,8 @@ class Svg2ModExportLegacy( Svg2ModExport ):
 
     def _get_module_name( self, front = None ):
 
-        if self.include_reverse:
-            if front:
-                return self.imported.module_name + "-Front"
-            else:
-                return self.imported.module_name + "-Back"
+        if self.include_reverse and not front:
+            return self.imported.module_name + "-rev"
 
         return self.imported.module_name
 
@@ -847,6 +844,7 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
     def _write_modules( self ):
 
         self._write_module( front = True )
+
         if self.include_reverse:
             self._write_module( front = False )
 
@@ -1071,11 +1069,21 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
         # Write post-index:
         self.output_file.writelines( self.post_index )
 
-        # Write unaffected modules:
+
+    #------------------------------------------------------------------------
+
+    def _write_preserved_modules( self, up_to = None ):
+
+        if up_to is not None:
+            up_to = up_to.lower()
+
         for module_name in sorted(
             self.loaded_modules.iterkeys(),
             key = str.lower
         ):
+            if up_to is not None and module_name.lower() >= up_to:
+                continue
+
             module_lines = self.loaded_modules[ module_name ]
 
             if module_lines is not None:
@@ -1087,6 +1095,44 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
                 self.output_file.write(
                     "$EndMODULE {}\n".format( module_name )
                 )
+
+                self.loaded_modules[ module_name ] = None
+
+
+    #------------------------------------------------------------------------
+
+    def _write_module_footer( self, front ):
+
+        super( Svg2ModExportLegacyUpdater, self )._write_module_footer(
+            front,
+        )
+
+        # Write remaining modules:
+        if not front:
+            self._write_preserved_modules()
+
+
+    #------------------------------------------------------------------------
+
+    def _write_module_header(
+        self,
+        label_size,
+        label_pen,
+        reference_y,
+        value_y,
+        front,
+    ):
+        self._write_preserved_modules(
+            up_to = self._get_module_name( front )
+        )
+
+        super( Svg2ModExportLegacyUpdater, self )._write_module_header(
+            label_size,
+            label_pen,
+            reference_y,
+            value_y,
+            front,
+        )
 
 
     #------------------------------------------------------------------------
