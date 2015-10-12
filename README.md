@@ -37,7 +37,7 @@ svg2mod expects images saved in the uncompressed Inkscape SVG (i.e., not "plain 
    * A path may have an outline and a fill.  (Colors will be ignored.)
    * A path may have holes, defined by interior segments within the path (see included examples).  Sometimes this will render propery in KiCad, but sometimes not.
    * Paths with filled areas within holes may not work at all.
- * Groups may be used.
+ * Groups may be used.  However, styles applied to groups (e.g., stroke-width) are not applied to contained drawing elements.  In these cases, it may be necessary to ungroup (and perhaps regroup) the elements.
  * Layers must be used to indicate the mapping of drawing elements to KiCad layers.
    * Layers must be named according to the rules below.
    * Drawing elements will be mapped to front layers by default.  Mirrored images of these elements can be automatically generated and mapped to back layers in a separate module (see --front-only option).
