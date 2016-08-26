@@ -58,7 +58,7 @@ Layers must be named (case-insensitive) according to the following rules:
 | Cmts.User           | Cmts.User        | Yes          | --           |
 | Eco1.User           | Eco1.User        | Yes          | --           |
 | Eco2.User           | Eco2.User        | Yes          | --           |
-| Edge.Cuts           | Edge.Cuts        | Yes          | --           |
+| Edge.Cuts           | Edge.Cuts        | Yes          | Yes          |
 | Fab                 | F.Fab, B.Fab     | --           | Yes          |
 | CrtYd               | F.CrtYd, B.CrtYd | --           | Yes          |
 
