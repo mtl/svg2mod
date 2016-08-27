@@ -596,7 +596,7 @@ class Svg2ModExport( object ):
                 if len( segments ) > 1:
                     points = segments[ 0 ].inline( segments[ 1 : ] )
 
-                else:
+                elif len( segments ) > 0:
                     points = segments[ 0 ].points
 
                 fill, stroke, stroke_width = self._get_fill_stroke( item )
