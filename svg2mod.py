@@ -21,7 +21,7 @@ def main():
     use_mm = args.units == 'mm'
 
     if pretty:
-        
+
         if not use_mm:
             print( "Error: decimil units only allowed with legacy output type" )
             sys.exit( -1 )
@@ -103,7 +103,7 @@ def main():
 class LineSegment( object ):
 
     #------------------------------------------------------------------------
- 
+
     @staticmethod
     def _on_segment( p, q, r ):
         """ Given three colinear points p, q, and r, check if
@@ -121,7 +121,7 @@ class LineSegment( object ):
 
 
     #------------------------------------------------------------------------
- 
+
     @staticmethod
     def _orientation( p, q, r ):
         """ Find orientation of ordered triplet (p, q, r).
@@ -139,7 +139,7 @@ class LineSegment( object ):
         if val == 0: return 0
         if val > 0: return 1
         return 2
-        
+
 
     #------------------------------------------------------------------------
 
@@ -161,7 +161,7 @@ class LineSegment( object ):
 
 
     #------------------------------------------------------------------------
- 
+
     def intersects( self, segment ):
         """ Return true if line segments 'p1q1' and 'p2q2' intersect.
             Adapted from:
@@ -231,7 +231,7 @@ class PolygonSegment( object ):
 
 
     #------------------------------------------------------------------------
- 
+
     # KiCad will not "pick up the pen" when moving between a polygon outline
     # and holes within it, so we search for a pair of points connecting the
     # outline (self) to the hole such that the connecting segment will not
@@ -283,7 +283,7 @@ class PolygonSegment( object ):
 
 
     #------------------------------------------------------------------------
- 
+
     # Return the list of ordered points starting on the given index, ensuring
     # that the first and last points are the same.
     def points_starting_on_index( self, index ):
@@ -305,7 +305,7 @@ class PolygonSegment( object ):
 
 
     #------------------------------------------------------------------------
- 
+
     # Return a list of points with the given polygon segments (paths) inlined.
     def inline( self, segments ):
 
@@ -359,7 +359,7 @@ class PolygonSegment( object ):
 
 
     #------------------------------------------------------------------------
- 
+
     def intersects( self, line_segment, check_connects ):
 
         hole_segment = LineSegment()
@@ -381,7 +381,7 @@ class PolygonSegment( object ):
                     #print( "Intersection detected." )
 
                     return True
-        
+
         return False
 
 
@@ -596,7 +596,7 @@ class Svg2ModExport( object ):
                 if len( segments ) > 1:
                     points = segments[ 0 ].inline( segments[ 1 : ] )
 
-                else:
+                elif len( segments ) > 0:
                     points = segments[ 0 ].points
 
                 fill, stroke, stroke_width = self._get_fill_stroke( item )
@@ -803,7 +803,7 @@ class Svg2ModExportLegacy( Svg2ModExport ):
         modules_list = self._get_module_name( front = True )
         if self.include_reverse:
             modules_list += (
-                "\n" + 
+                "\n" +
                 self._get_module_name( front = False )
             )
 
