@@ -1168,13 +1168,14 @@ class Svg2ModExportPretty( Svg2ModExport ):
 
     layer_map = {
         #'inkscape-name' : kicad-name,
-        'Cu' : "Cu",
-        'Adhes' : "Adhes",
-        'Paste' : "Paste",
-        'SilkS' : "SilkS",
-        'Mask' : "Mask",
-        'CrtYd' : "CrtYd",
-        'Fab' : "Fab",
+        'Cu' :    "{}.Cu",
+        'Adhes' : "{}.Adhes",
+        'Paste' : "{}.Paste",
+        'SilkS' : "{}.SilkS",
+        'Mask' :  "{}.Mask",
+        'CrtYd' : "{}.CrtYd",
+        'Fab' :   "{}.Fab",
+        'Edge.Cuts' : "Edge.Cuts"
     }
 
 
@@ -1183,9 +1184,9 @@ class Svg2ModExportPretty( Svg2ModExport ):
     def _get_layer_name( self, name, front ):
 
         if front:
-            return "F." + self.layer_map[ name ]
+            return self.layer_map[ name ].format("F")
         else:
-            return "B." + self.layer_map[ name ]
+            return self.layer_map[ name ].format("B")
 
 
     #------------------------------------------------------------------------
