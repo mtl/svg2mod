@@ -744,11 +744,11 @@ class Svg2ModExportLegacy( Svg2ModExport ):
         'Paste' : [ 19, 18 ],
         'SilkS' : [ 21, 20 ],
         'Mask' : [ 23, 22 ],
-        'Dwgs\\.User' : [ 24, 24 ],
-        'Cmts\\.User' : [ 25, 25 ],
-        'Eco1\\.User' : [ 26, 26 ],
-        'Eco2\\.User' : [ 27, 27 ],
-        'Edge\\.Cuts' : [ 28, 28 ],
+        'Dwgs.User' : [ 24, 24 ],
+        'Cmts.User' : [ 25, 25 ],
+        'Eco1.User' : [ 26, 26 ],
+        'Eco2.User' : [ 27, 27 ],
+        'Edge.Cuts' : [ 28, 28 ],
     }
 
 
