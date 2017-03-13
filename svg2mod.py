@@ -1410,7 +1410,7 @@ def get_arguments():
         metavar = 'FORMAT',
         choices = [ 'legacy', 'pretty' ],
         help = "output module file format (legacy|pretty)",
-        default = 'legacy',
+        default = 'pretty',
     )
 
     parser.add_argument(
