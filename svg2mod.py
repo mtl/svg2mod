@@ -1201,7 +1201,7 @@ class Svg2ModExportPretty( Svg2ModExport ):
     def _write_library_intro( self ):
 
         self.output_file.write( """(module {0} (layer F.Cu) (tedit {1:8X})
-  (attr smd)
+  (attr virtual)
   (descr "{2}")
   (tags {3})
 """.format(
