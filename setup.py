@@ -29,7 +29,7 @@ setup(
     author_email='',
     url='https://github.com/mtl/svg2mod',
     packages=setuptools.find_packages(),
-    entry_points={'console_scripts':['svg2mod = svg2mod.svg2mod:main']},
+    entry_points={'console_scripts':['svg2mod = svg2mod:main']},
     package_dir={'svg2mod':'svg2mod'},
     scripts=[],
     install_requires=requirements,
