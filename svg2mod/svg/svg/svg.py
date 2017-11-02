@@ -28,6 +28,7 @@ import operator
 import json
 from .geometry import *
 
+
 svg_ns = '{http://www.w3.org/2000/svg}'
 
 # Regex commonly used
@@ -260,6 +261,7 @@ class Group(Transformable):
         
         self.name = ""
         if elt is not None:
+            
             for id, value in elt.attrib.iteritems():
 
                 id = self.parse_name( id )
