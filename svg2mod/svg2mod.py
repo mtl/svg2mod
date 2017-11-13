@@ -7,7 +7,7 @@ import datetime
 import os
 from pprint import pformat, pprint
 import re
-import svg
+import svg2mod.svg as svg
 import sys
 
 
