@@ -29,6 +29,8 @@ optional arguments:
   --units UNITS         output units, if output format is legacy (decimil|mm)
 ```
 
+Note: If you have very complex SVG drawings, running svg2mod.py using the [PyPy](http://pypy.org/) interpreter instead of standard CPython can speed up the conversion _alot_.  
+
 ## SVG Files
 
 svg2mod expects images saved in the uncompressed Inkscape SVG (i.e., not "plain SVG") format.
