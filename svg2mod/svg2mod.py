@@ -470,8 +470,7 @@ class Svg2ModExport( object ):
 
     #------------------------------------------------------------------------
 
-    @classmethod
-    def _get_fill_stroke( cls, item ):
+    def _get_fill_stroke( self, item ):
 
         fill = True
         stroke = True
@@ -499,7 +498,7 @@ class Svg2ModExport( object ):
             stroke_width = 0.0
         elif stroke_width is None:
             # Give a default stroke width?
-            stroke_width = cls._convert_decimil_to_mm( 1 )
+            stroke_width = self._convert_decimil_to_mm( 1 )
 
         return fill, stroke, stroke_width
 
