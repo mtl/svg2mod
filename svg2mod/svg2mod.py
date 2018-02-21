@@ -12,6 +12,7 @@ import sys
 
 
 #----------------------------------------------------------------------------
+DEFAULT_DPI = 96 # 96 as of Inkscape 0.92
 
 def main():
 
@@ -61,6 +62,7 @@ def main():
             args.output_file_name,
             args.scale_factor,
             args.precision,
+            args.dpi,
         )
 
     else:
@@ -75,6 +77,7 @@ def main():
                     args.output_file_name,
                     args.scale_factor,
                     args.precision,
+                    args.dpi,
                     include_reverse = not args.front_only,
                 )
 
@@ -91,6 +94,7 @@ def main():
                 args.scale_factor,
                 args.precision,
                 use_mm = use_mm,
+                dpi = args.dpi,
                 include_reverse = not args.front_only,
             )
 
@@ -466,8 +470,7 @@ class Svg2ModExport( object ):
 
     #------------------------------------------------------------------------
 
-    @classmethod
-    def _get_fill_stroke( cls, item ):
+    def _get_fill_stroke( self, item ):
 
         fill = True
         stroke = True
@@ -489,13 +492,13 @@ class Svg2ModExport( object ):
 
                 elif name == "stroke-width":
                     value = value.replace( "px", "" )
-                    stroke_width = float( value ) * 25.4 / 90.0
+                    stroke_width = float( value ) * 25.4 / float(self.dpi)
 
         if not stroke:
             stroke_width = 0.0
         elif stroke_width is None:
             # Give a default stroke width?
-            stroke_width = cls._convert_decimil_to_mm( 1 )
+            stroke_width = self._convert_decimil_to_mm( 1 )
 
         return fill, stroke, stroke_width
 
@@ -509,21 +512,22 @@ class Svg2ModExport( object ):
         scale_factor = 1.0,
         precision = 20.0,
         use_mm = True,
+        dpi = DEFAULT_DPI,
     ):
         if use_mm:
-            # 25.4 mm/in; Inkscape uses 90 DPI:
-            scale_factor *= 25.4 / 90.0
+            # 25.4 mm/in;
+            scale_factor *= 25.4 / float(dpi)
             use_mm = True
         else:
-            # PCBNew uses "decimil" (10K DPI); Inkscape uses 90 DPI:
-            scale_factor *= 10000.0 / 90.0
+            # PCBNew uses "decimil" (10K DPI);
+            scale_factor *= 10000.0 / float(dpi)
 
         self.imported = svg2mod_import
         self.file_name = file_name
         self.scale_factor = scale_factor
         self.precision = precision
         self.use_mm = use_mm
-
+        self.dpi = dpi
 
     #------------------------------------------------------------------------
 
@@ -761,6 +765,7 @@ class Svg2ModExportLegacy( Svg2ModExport ):
         scale_factor = 1.0,
         precision = 20.0,
         use_mm = True,
+        dpi = DEFAULT_DPI,
         include_reverse = True,
     ):
         super( Svg2ModExportLegacy, self ).__init__(
@@ -769,6 +774,7 @@ class Svg2ModExportLegacy( Svg2ModExport ):
             scale_factor,
             precision,
             use_mm,
+            dpi,
         )
 
         self.include_reverse = include_reverse
@@ -949,6 +955,7 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
         file_name,
         scale_factor = 1.0,
         precision = 20.0,
+        dpi = DEFAULT_DPI,
         include_reverse = True,
     ):
         self.file_name = file_name
@@ -960,6 +967,7 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
             scale_factor,
             precision,
             use_mm,
+            dpi,
             include_reverse,
         )
 
@@ -1423,6 +1431,15 @@ def get_arguments():
         default = 'mm',
     )
 
+    parser.add_argument(
+        '-d', '--dpi',
+        type = int,
+        dest = 'dpi',
+        metavar = 'DPI',
+        help = "DPI of the SVG file (int)",
+        default = DEFAULT_DPI,
+    )    
+    
     return parser.parse_args(), parser
 
 
