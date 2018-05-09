@@ -9,9 +9,18 @@ Python 3
 
 ```python3 setup.py install```
 
-- OR - 
+OR you can install it using the PIP package manager:
 
 ```pip3 install git+https://github.com/zirafa/svg2mod```
+
+
+## Example
+
+```python3 svg2mod.py -i input.svg```
+
+OR for PIP
+
+```svg2mod -i input.svg```
 
 
 ## Usage
