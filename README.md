@@ -1,6 +1,19 @@
 # svg2mod
 This is a small program to convert Inkscape SVG drawings to KiCad footprint module files.  It uses [cjlano's python SVG parser and drawing module](https://github.com/cjlano/svg) to interpret drawings and approximate curves using straight line segments.  Module files can be output in KiCad's legacy or s-expression (i.e., pretty) formats.  Horizontally mirrored modules are automatically generated for use on the back of a 2-layer PCB.
 
+## Requirements
+
+Python 3
+
+## Installation
+
+```python3 setup.py install```
+
+- OR - 
+
+```pip3 install git+https://github.com/zirafa/svg2mod```
+
+
 ## Usage
 ```
 usage: svg2mod.py [-h] -i FILENAME [-o FILENAME] [--name NAME] [--value VALUE]
