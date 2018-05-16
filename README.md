@@ -13,11 +13,11 @@ Note: ```python3 setup.py install``` does not work.
 
 ## Example
 
-```svg2mod -i input.svg```
+```svg2mod -i input.svg -p 1.0```
 
 ## Usage
 ```
-usage: svg2mod.py [-h] -i FILENAME [-o FILENAME] [--name NAME] [--value VALUE]
+usage: svg2mod [-h] -i FILENAME [-o FILENAME] [--name NAME] [--value VALUE]
                   [-f FACTOR] [-p PRECISION] [-d DPI] [--front-only] [--format FORMAT]
                   [--units UNITS]
 
