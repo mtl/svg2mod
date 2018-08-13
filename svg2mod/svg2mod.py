@@ -60,6 +60,7 @@ def main():
         exported = Svg2ModExportPretty(
             imported,
             args.output_file_name,
+            args.center,
             args.scale_factor,
             args.precision,
             args.dpi,
@@ -75,10 +76,10 @@ def main():
                 exported = Svg2ModExportLegacyUpdater(
                     imported,
                     args.output_file_name,
+                    args.center,
                     args.scale_factor,
                     args.precision,
                     args.dpi,
-                    include_reverse = not args.front_only,
                 )
 
             except Exception as e:
@@ -91,11 +92,11 @@ def main():
             exported = Svg2ModExportLegacy(
                 imported,
                 args.output_file_name,
+                args.center,
                 args.scale_factor,
                 args.precision,
                 use_mm = use_mm,
                 dpi = args.dpi,
-                include_reverse = not args.front_only,
             )
 
     # Export the footprint:
@@ -509,6 +510,7 @@ class Svg2ModExport( object ):
         self,
         svg2mod_import,
         file_name,
+        center,
         scale_factor = 1.0,
         precision = 20.0,
         use_mm = True,
@@ -524,6 +526,7 @@ class Svg2ModExport( object ):
 
         self.imported = svg2mod_import
         self.file_name = file_name
+        self.center = center
         self.scale_factor = scale_factor
         self.precision = precision
         self.use_mm = use_mm
@@ -535,15 +538,21 @@ class Svg2ModExport( object ):
 
         min_point, max_point = self.imported.svg.bbox()
 
-        ## Center the drawing:
-        #adjust_x = min_point.x + ( max_point.x - min_point.x ) / 2.0
-        #adjust_y = min_point.y + ( max_point.y - min_point.y ) / 2.0
+        if(self.center):
+            # Center the drawing:
+            adjust_x = min_point.x + ( max_point.x - min_point.x ) / 2.0
+            adjust_y = min_point.y + ( max_point.y - min_point.y ) / 2.0
 
-        self.translation = svg.Point(
-            0.0,
-            0.0,
-        )
+            self.translation = svg.Point(
+                0.0 - adjust_x,
+                0.0 - adjust_y,
+            )
 
+        else:
+            self.translation = svg.Point(
+                0.0,
+                0.0,
+            )
 
     #------------------------------------------------------------------------
 
@@ -767,22 +776,23 @@ class Svg2ModExportLegacy( Svg2ModExport ):
         self,
         svg2mod_import,
         file_name,
+        center,
         scale_factor = 1.0,
         precision = 20.0,
         use_mm = True,
         dpi = DEFAULT_DPI,
-        include_reverse = True,
     ):
         super( Svg2ModExportLegacy, self ).__init__(
             svg2mod_import,
             file_name,
+            center,
             scale_factor,
             precision,
             use_mm,
             dpi,
         )
 
-        self.include_reverse = include_reverse
+        self.include_reverse = True
 
 
     #------------------------------------------------------------------------
@@ -958,6 +968,7 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
         self,
         svg2mod_import,
         file_name,
+        center,
         scale_factor = 1.0,
         precision = 20.0,
         dpi = DEFAULT_DPI,
@@ -969,11 +980,11 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
         super( Svg2ModExportLegacyUpdater, self ).__init__(
             svg2mod_import,
             file_name,
+            center,
             scale_factor,
             precision,
             use_mm,
             dpi,
-            include_reverse,
         )
 
 
@@ -1449,6 +1460,15 @@ def get_arguments():
         default = DEFAULT_DPI,
     )    
     
+    parser.add_argument(
+        '--center',
+        dest = 'center',
+        action = 'store_const',
+        const = True,
+        help = "Center the module to the center of the bounding box",
+        default = False,
+    )
+
     return parser.parse_args(), parser
 
 
