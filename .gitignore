@@ -1,3 +1,7 @@
 *~
 .*.sw?
 *.pyc
+build
+dist
+svg2mod.egg-info
+*.kicad_mod
