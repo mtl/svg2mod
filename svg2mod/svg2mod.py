@@ -535,13 +535,13 @@ class Svg2ModExport( object ):
 
         min_point, max_point = self.imported.svg.bbox()
 
-        # Center the drawing:
-        adjust_x = min_point.x + ( max_point.x - min_point.x ) / 2.0
-        adjust_y = min_point.y + ( max_point.y - min_point.y ) / 2.0
+        ## Center the drawing:
+        #adjust_x = min_point.x + ( max_point.x - min_point.x ) / 2.0
+        #adjust_y = min_point.y + ( max_point.y - min_point.y ) / 2.0
 
         self.translation = svg.Point(
-            0.0 - adjust_x,
-            0.0 - adjust_y,
+            0.0,
+            0.0,
         )
 
 
@@ -1176,13 +1176,20 @@ class Svg2ModExportPretty( Svg2ModExport ):
 
     layer_map = {
         #'inkscape-name' : kicad-name,
-        'Cu' :    "{}.Cu",
-        'Adhes' : "{}.Adhes",
-        'Paste' : "{}.Paste",
-        'SilkS' : "{}.SilkS",
-        'Mask' :  "{}.Mask",
-        'CrtYd' : "{}.CrtYd",
-        'Fab' :   "{}.Fab",
+        'F.Cu' :    "F.Cu",
+        'B.Cu' :    "B.Cu",
+        'F.Adhes' : "F.Adhes",
+        'B.Adhes' : "B.Adhes",
+        'F.Paste' : "F.Paste",
+        'B.Paste' : "B.Paste",
+        'F.SilkS' : "F.SilkS",
+        'B.SilkS' : "B.SilkS",
+        'F.Mask' :  "F.Mask",
+        'B.Mask' :  "B.Mask",
+        'F.CrtYd' : "F.CrtYd",
+        'B.CrtYd' : "B.CrtYd",
+        'F.Fab' :   "F.Fab",
+        'B.Fab' :   "B.Fab",
         'Edge.Cuts' : "Edge.Cuts"
     }
 
@@ -1191,10 +1198,7 @@ class Svg2ModExportPretty( Svg2ModExport ):
 
     def _get_layer_name( self, name, front ):
 
-        if front:
-            return self.layer_map[ name ].format("F")
-        else:
-            return self.layer_map[ name ].format("B")
+        return self.layer_map[ name ]
 
 
     #------------------------------------------------------------------------
