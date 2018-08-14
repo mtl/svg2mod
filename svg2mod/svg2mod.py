@@ -1202,11 +1202,15 @@ class Svg2ModExportPretty( Svg2ModExport ):
         'B.SilkS' : "B.SilkS",
         'F.Mask' :  "F.Mask",
         'B.Mask' :  "B.Mask",
+        'Dwgs.User' : "Dwgs.User",
+        'Cmts.User' : "Cmts.User",
+        'Eco1.User' : "Eco1.User",
+        'Eco2.User' : "Eco2.User",
+        'Edge.Cuts' : "Edge.Cuts",
         'F.CrtYd' : "F.CrtYd",
         'B.CrtYd' : "B.CrtYd",
         'F.Fab' :   "F.Fab",
-        'B.Fab' :   "B.Fab",
-        'Edge.Cuts' : "Edge.Cuts"
+        'B.Fab' :   "B.Fab"
     }
 
 
