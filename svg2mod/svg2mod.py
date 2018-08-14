@@ -1423,15 +1423,6 @@ def get_arguments():
     )
 
     parser.add_argument(
-        '--front-only',
-        dest = 'front_only',
-        action = 'store_const',
-        const = True,
-        help = "omit output of back module (legacy output format)",
-        default = False,
-    )
-
-    parser.add_argument(
         '--format',
         type = str,
         dest = 'format',

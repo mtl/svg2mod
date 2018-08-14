@@ -4,8 +4,8 @@ This is a small program to convert Inkscape SVG drawings to KiCad footprint modu
 ## Usage
 ```
 usage: svg2mod [-h] -i FILENAME [-o FILENAME] [--name NAME] [--value VALUE]
-               [-f FACTOR] [-p PRECISION] [--front-only] [--format FORMAT]
-               [--units UNITS] [-d DPI] [--center]
+               [-f FACTOR] [-p PRECISION] [--format FORMAT] [--units UNITS]
+               [-d DPI] [--center]
 
 Convert Inkscape SVG drawings to KiCad footprint modules.
 
@@ -24,7 +24,6 @@ optional arguments:
   -p PRECISION, --precision PRECISION
                         smoothness for approximating curves with line segments
                         (float)
-  --front-only          omit output of back module (legacy output format)
   --format FORMAT       output module file format (legacy|pretty)
   --units UNITS         output units, if output format is legacy (decimil|mm)
   -d DPI, --dpi DPI     DPI of the SVG file (int)
