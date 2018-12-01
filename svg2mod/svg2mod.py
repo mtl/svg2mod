@@ -393,7 +393,7 @@ class PolygonSegment( object ):
 
     # Apply all transformations and rounding, then remove duplicate
     # consecutive points along the path.
-    def process( self, transformer, flip ):
+    def process( self, transformer, flip, fill ):
 
         points = []
         for point in self.points:
@@ -416,10 +416,11 @@ class PolygonSegment( object ):
                 #points[ -1 ].x, points[ -1 ].y,
             #) )
 
-            points.append( svg.Point(
-                points[ 0 ].x,
-                points[ 0 ].y,
-            ) )
+            if fill:
+                points.append( svg.Point(
+                    points[ 0 ].x,
+                    points[ 0 ].y,
+                ) )
 
         #else:
             #print( "Polygon closed: start=({}, {}) end=({}, {})".format(
@@ -594,16 +595,16 @@ class Svg2ModExport( object ):
                     )
                 ]
 
+                fill, stroke, stroke_width = self._get_fill_stroke( item )
+
                 for segment in segments:
-                    segment.process( self, flip )
+                    segment.process( self, flip, fill )
 
                 if len( segments ) > 1:
                     points = segments[ 0 ].inline( segments[ 1 : ] )
 
                 elif len( segments ) > 0:
                     points = segments[ 0 ].points
-
-                fill, stroke, stroke_width = self._get_fill_stroke( item )
 
                 if not self.use_mm:
                     stroke_width = self._convert_mm_to_decimil(
