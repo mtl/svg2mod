@@ -493,8 +493,11 @@ class Svg2ModExport( object ):
                     stroke = False
 
                 elif name == "stroke-width":
-                    value = value.replace( "px", "" )
-                    stroke_width = float( value ) * 25.4 / float(self.dpi)
+                    if value.endswith("px"):
+                        value = value.replace( "px", "" )
+                        stroke_width = float( value ) * 25.4 / float(self.dpi)
+                    else:
+                        stroke_width = float( value )
 
         if not stroke:
             stroke_width = 0.0
