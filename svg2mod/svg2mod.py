@@ -480,7 +480,7 @@ class Svg2ModExport( object ):
 
         if item.style is not None and item.style != "":
 
-            for property in item.style.split( ";" ):
+            for property in filter(None, item.style.split( ";" )):
 
                 nv = property.split( ":" );
                 name = nv[ 0 ].strip()
