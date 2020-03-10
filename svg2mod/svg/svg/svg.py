@@ -261,13 +261,7 @@ class Group(Transformable):
 
         self.name = ""
         if elt is not None:
-<<<<<<< HEAD
-            
             for id, value in elt.attrib.items():
-=======
-
-            for id, value in elt.attrib.iteritems():
->>>>>>> 5a6b18bbf6b1413eadcb48db2ac72ab9b2d79c34
 
                 id = self.parse_name( id )
                 if id[ "name" ] == "label":
