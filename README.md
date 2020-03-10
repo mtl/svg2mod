@@ -1,4 +1,6 @@
 # svg2mod
+[![Build Status](https://travis-ci.org/Sodium-Hydrogen/svg2mod.svg?branch=travis-testing)](https://travis-ci.org/Sodium-Hydrogen/svg2mod)
+
 This is a small program to convert Inkscape SVG drawings to KiCad footprint module files.  It uses [cjlano's python SVG parser and drawing module](https://github.com/cjlano/svg) to interpret drawings and approximate curves using straight line segments.  Module files can be output in KiCad's legacy or s-expression (i.e., pretty) formats.
 
 ## Requirements
