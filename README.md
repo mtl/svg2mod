@@ -7,7 +7,7 @@ Python 3
 
 ## Installation
 
-```pip3 install git+https://github.com/zirafa/svg2mod```
+```pip3 install git+https://github.com/Sodium-Hydrogen/svg2mod```
 
 Note: ```python3 setup.py install``` does not work.
 
@@ -18,13 +18,8 @@ Note: ```python3 setup.py install``` does not work.
 ## Usage
 ```
 usage: svg2mod [-h] -i FILENAME [-o FILENAME] [--name NAME] [--value VALUE]
-<<<<<<< HEAD
                [-f FACTOR] [-p PRECISION] [--format FORMAT] [--units UNITS]
                [-d DPI] [--center]
-=======
-                  [-f FACTOR] [-p PRECISION] [-d DPI] [--front-only] [--format FORMAT]
-                  [--units UNITS]
->>>>>>> 3b416846ce8dbda0e370f9ce49129a74d0bf23bf
 
 Convert Inkscape SVG drawings to KiCad footprint modules.
 
