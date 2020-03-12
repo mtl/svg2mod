@@ -258,11 +258,10 @@ class Group(Transformable):
 
     def __init__(self, elt=None):
         Transformable.__init__(self, elt)
-        
+
         self.name = ""
         if elt is not None:
-            
-            for id, value in elt.attrib.iteritems():
+            for id, value in elt.attrib.items():
 
                 id = self.parse_name( id )
                 if id[ "name" ] == "label":
@@ -401,7 +400,7 @@ class Path(Transformable):
             # Close Path
                 l = Segment(current_pt, start_pt)
                 self.items.append(l)
-
+                current_pt = start_pt
 
             elif command in 'LHV':
             # LineTo, Horizontal & Vertical line
@@ -708,4 +707,3 @@ for name, cls in inspect.getmembers(sys.modules[__name__], inspect.isclass):
     tag = getattr(cls, 'tag', None)
     if tag:
         svgClass[svg_ns + tag] = cls
-
