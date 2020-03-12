@@ -9,7 +9,7 @@ Python 3
 
 ## Installation
 
-```pip3 install git+https://github.com/Sodium-Hydrogen/svg2mod```
+```pip3 install git+https://github.com/svg2mod/svg2mod```
 
 If building fails make sure setuptools is up to date. `pip3 install setuptools --upgrade`
 
