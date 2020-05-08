@@ -1,6 +1,4 @@
-#!/usr/bin/python
-
-from __future__ import absolute_import
+#!/usr/bin/env python3
 
 import argparse
 import datetime
@@ -1457,8 +1455,8 @@ def get_arguments():
         metavar = 'DPI',
         help = "DPI of the SVG file (int)",
         default = DEFAULT_DPI,
-    )    
-    
+    )
+
     parser.add_argument(
         '--center',
         dest = 'center',
@@ -1474,8 +1472,8 @@ def get_arguments():
     #------------------------------------------------------------------------
 
 #----------------------------------------------------------------------------
-
-main()
+if __name__ == "__main__":
+    main()
 
 
 #----------------------------------------------------------------------------
