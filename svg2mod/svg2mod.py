@@ -35,7 +35,8 @@ def main():
     imported = Svg2ModImport(
         args.input_file_name,
         args.module_name,
-        args.module_value
+        args.module_value,
+        args.ignore_hidden_layers,
     )
 
     # Pick an output file name if none was provided:
@@ -438,7 +439,27 @@ class Svg2ModImport( object ):
 
     #------------------------------------------------------------------------
 
-    def __init__( self, file_name, module_name, module_value ):
+    def _prune_hidden( self, items = None ):
+
+        if items is None:
+
+            items = self.svg.items
+            self.svg.items = []
+
+        for item in items:
+
+            if not isinstance( item, svg.Group ):
+                continue
+
+            if( item.hidden ):
+                print("Ignoring hidden SVG layer: {}".format( item.name ) )
+            else:
+                self.svg.items.append( item )
+
+            if(item.items):
+                self._prune_hidden( item.items )
+
+    def __init__( self, file_name, module_name, module_value, ignore_hidden_layers ):
 
         self.file_name = file_name
         self.module_name = module_name
@@ -446,6 +467,8 @@ class Svg2ModImport( object ):
 
         print( "Parsing SVG..." )
         self.svg = svg.parse( file_name )
+        if( ignore_hidden_layers ):
+            self._prune_hidden()
 
 
     #------------------------------------------------------------------------
@@ -579,6 +602,7 @@ class Svg2ModExport( object ):
                 #if re.search( name, item.name, re.I ):
                 if name == item.name:
                     print( "Found SVG layer: {}".format( item.name ) )
+
                     self.imported.svg.items.append( item )
                     self.layers[ name ] = item
                     break
@@ -1463,6 +1487,15 @@ def get_arguments():
         action = 'store_const',
         const = True,
         help = "Center the module to the center of the bounding box",
+        default = False,
+    )
+
+    parser.add_argument(
+        '-x',
+        dest = 'ignore_hidden_layers',
+        action = 'store_const',
+        const = True,
+        help = "Do not export hidden layers",
         default = False,
     )
 
