@@ -22,12 +22,12 @@ test_requirements = [
 
 setup(
     name='svg2mod',
-    version='0.1.0',
+    version='0.1.1',
     description="Convert an SVG file to a KiCad footprint.",
     long_description=readme,
-    author='https://github.com/Sodium-Hydrogen',
+    author='https://github.com/svg2mod',
     author_email='',
-    url='https://github.com/Sodium-Hydrogen/svg2mod',
+    url='https://github.com/svg2mod/svg2mod',
     packages=setuptools.find_packages(),
     entry_points={'console_scripts':['svg2mod = svg2mod.svg2mod:main']},
     package_dir={'svg2mod':'svg2mod'},
