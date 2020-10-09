@@ -23,7 +23,7 @@ If building fails make sure setuptools is up to date. `pip3 install setuptools -
 ```
 usage: svg2mod [-h] -i FILENAME [-o FILENAME] [--name NAME] [--value VALUE]
                [-f FACTOR] [-p PRECISION] [--format FORMAT] [--units UNITS]
-               [-d DPI] [--center]
+               [-d DPI] [--center] [-x]
 
 Convert Inkscape SVG drawings to KiCad footprint modules.
 
@@ -46,6 +46,7 @@ optional arguments:
   --units UNITS         output units, if output format is legacy (decimil|mm)
   -d DPI, --dpi DPI     DPI of the SVG file (int)
   --center              Center the module to the center of the bounding box
+  -x                    Do not export hidden layers
 ```
 
 ## SVG Files

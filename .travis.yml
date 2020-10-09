@@ -1,2 +1,2 @@
 language: python
-script: pip3 install ./ && svg2mod -i examples/dt-logo.svg -o output.kicad_mod --name TEST --value VALUE -f 2 -p 1 --format pretty --units mm -d 300 --center
+script: pip3 install ./ && svg2mod -i examples/svg2mod.svg -o output.kicad_mod --name TEST --value VALUE -f 2 -p 1 --format pretty --units mm -d 300 --center -x && cat output.kicad_mod
