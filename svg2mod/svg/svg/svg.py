@@ -260,12 +260,16 @@ class Group(Transformable):
         Transformable.__init__(self, elt)
 
         self.name = ""
+        self.hidden = False
         if elt is not None:
             for id, value in elt.attrib.items():
 
                 id = self.parse_name( id )
                 if id[ "name" ] == "label":
                     self.name = value
+                if id[ "name" ] == "style":
+                    if re.search( "display\s*:\s*none", value ):
+                        self.hidden = True
 
     @staticmethod
     def parse_name( tag ):
