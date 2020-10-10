@@ -24,6 +24,7 @@ setup(
     name='svg2mod',
     version='0.1.1',
     description="Convert an SVG file to a KiCad footprint.",
+    long_description_content_type='text/markdown',
     long_description=readme,
     author='https://github.com/svg2mod',
     author_email='',
@@ -41,7 +42,7 @@ setup(
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication',
+        'License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication',
         'Natural Language :: English',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.5',
