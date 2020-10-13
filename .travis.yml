@@ -1,2 +1,21 @@
-language: python
-script: pip3 install ./ && svg2mod -i examples/svg2mod.svg -o output.kicad_mod --name TEST --value VALUE -f 2 -p 1 --format pretty --units mm -d 300 --center -x && cat output.kicad_mod
+jobs:
+  include:
+  - stage: unit tests
+    os: linux
+    language: python
+    script:
+    - pip3 install ./ 
+    - svg2mod -i examples/svg2mod.svg -o output.kicad_mod --name TEST --value VALUE -f 2 -p 1 --format pretty --units mm -d 300 --center -x -p
+    - svg2mod -i examples/svg2mod.svg
+  - stage: deploy
+    os: linux
+    language: python
+    script:
+    - python setup.py bdist_wheel sdist
+    deploy:
+      provider: pypi
+      username: "__token__"
+      password:
+        secure: "iPZUYg6L0em9rPO8oFzRfxLRYR+mzfyKMuOFLO5oO+zHjwZvE0XHbWc8Mcw5tzv9rEHFIKaZ66z8hiXEdEjgG6QQhqASf3A9E0ZmLcED7vedV479oC9xxK7q8ohG4vqgAuw6c9G35UZIQRah5hvXBe10OdPCGxKFG+Tw2vkT3XMZLGBevEPJ6V491+BoqGE2BvD5dwMvzz62dC/0EQffN2jT6daDDHj3tYSQdydD1HYzUl9LQhNtIXdWRdORhwznn8EYQHfY/DwAhktSQGqqS+94t5oqXo3fXlwkJTZtWwr6d83gsn3zrU4FvmGACUsHjwCf5DHBx8EN9fR8eEdS6mJHXSdYNRtnV53NvY144dxUQlNs0UopZtLTofsVw+dlYSTCk/haBmGLMNfwn/dHtQz73ExpLyX3aTHpNwIzPI+Ty3xX/VvAdsHxeGEazW0/A8cDfOTM9PRDzt9eawGhGFsrP9qtiOn340WTL2si+AJtVLB9kq/eBG3ruUhZ5+XSiax20ZCb8gjEWJMdQXiFZ61tKvzfUBDXcJprBMtjcEJC4hhkfyxMS2r2haCovG3F0xx/CCfT5t0Q99wo6wukkfPpxsuENYlB2oxFr13naCV2HA60bYBGpR1fAIeaKFNMK86JNov562+dCAAzGi2MwYBQG2EJUaN8619RjwaFP+0="
+      server: https://test.pypi.org
+      cleanup: false

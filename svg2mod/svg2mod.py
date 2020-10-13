@@ -62,7 +62,8 @@ def main():
             args.center,
             args.scale_factor,
             args.precision,
-            args.dpi,
+            dpi = args.dpi,
+            pads = args.convert_to_pads
         )
 
     else:
@@ -540,6 +541,7 @@ class Svg2ModExport( object ):
         precision = 20.0,
         use_mm = True,
         dpi = DEFAULT_DPI,
+        pads = False,
     ):
         if use_mm:
             # 25.4 mm/in;
@@ -556,6 +558,7 @@ class Svg2ModExport( object ):
         self.precision = precision
         self.use_mm = use_mm
         self.dpi = dpi
+        self.convert_pads = pads
 
     #------------------------------------------------------------------------
 
@@ -1323,6 +1326,17 @@ class Svg2ModExportPretty( Svg2ModExport ):
 
     #------------------------------------------------------------------------
 
+    def _write_polygon_filled( self, points, layer, stroke_width = 0):
+        self._write_polygon_header( points, layer, stroke_width)
+
+        for point in points:
+            self._write_polygon_point( point )
+
+        self._write_polygon_footer( layer, stroke_width )
+
+
+    #------------------------------------------------------------------------
+
     def _write_polygon( self, points, layer, fill, stroke, stroke_width ):
 
         if fill:
@@ -1343,17 +1357,44 @@ class Svg2ModExportPretty( Svg2ModExport ):
 
     def _write_polygon_footer( self, layer, stroke_width ):
 
-        self.output_file.write(
-            "    )\n    (layer {})\n    (width {})\n  )".format(
-                layer, stroke_width
+        if self._create_pad:
+            self.output_file.write(
+                "      )\n    (width {}) )\n  ))".format(
+                    stroke_width
+                )
             )
-        )
+        else:
+            self.output_file.write(
+                "    )\n    (layer {})\n    (width {})\n  )".format(
+                    layer, stroke_width
+                )
+            )
 
 
     #------------------------------------------------------------------------
 
-    def _write_polygon_header( self, points, layer ):
+    def _write_polygon_header( self, points, layer, stroke_width):
+        self._create_pad = self.convert_pads and layer.find("Cu") == 2
+        if stroke_width == 0:
+            stroke_width = 1e-5 #This is the smallest a pad can be and still be rendered in kicad
 
+        if self._create_pad:
+            self.output_file.write( '''\n  (pad 1 smd custom (at {0} {1}) (size {2:.6f} {2:.6f}) (layers {3})
+    (zone_connect 0)
+    (options (clearance outline) (anchor circle))
+    (primitives\n      (gr_poly (pts \n'''.format(
+                    points[0].x, #0
+                    points[0].y, #1
+                    stroke_width, #2
+                    layer, #3
+                )
+            )
+            originx = points[0].x
+            originy = points[0].y
+            for point in points:
+                point.x = point.x-originx
+                point.y = point.y-originy
+        else:
             self.output_file.write( "\n  (fp_poly\n    (pts \n" )
 
 
@@ -1361,9 +1402,12 @@ class Svg2ModExportPretty( Svg2ModExport ):
 
     def _write_polygon_point( self, point ):
 
-            self.output_file.write(
-                "      (xy {} {})\n".format( point.x, point.y )
-            )
+        if self._create_pad:
+            self.output_file.write("  ")
+
+        self.output_file.write(
+            "      (xy {} {})\n".format( point.x, point.y )
+        )
 
 
     #------------------------------------------------------------------------
@@ -1417,21 +1461,39 @@ def get_arguments():
     )
 
     parser.add_argument(
-        '--name', '--module-name',
-        type = str,
-        dest = 'module_name',
-        metavar = 'NAME',
-        help = "base name of the module",
-        default = "svg2mod",
+        '-c', '--center',
+        dest = 'center',
+        action = 'store_const',
+        const = True,
+        help = "Center the module to the center of the bounding box",
+        default = False,
     )
 
     parser.add_argument(
-        '--value', '--module-value',
-        type = str,
-        dest = 'module_value',
-        metavar = 'VALUE',
-        help = "value of the module",
-        default = "G***",
+        '-pads', '--convert-pads',
+        dest = 'convert_to_pads',
+        action = 'store_const',
+        const = True,
+        help = "Convert any artwork on Cu layers to pads",
+        default = False,
+    )
+
+    parser.add_argument(
+        '-x', '--exclude-hidden',
+        dest = 'ignore_hidden_layers',
+        action = 'store_const',
+        const = True,
+        help = "Do not export hidden layers",
+        default = False,
+    )
+
+    parser.add_argument(
+        '-d', '--dpi',
+        type = int,
+        dest = 'dpi',
+        metavar = 'DPI',
+        help = "DPI of the SVG file (int)",
+        default = DEFAULT_DPI,
     )
 
     parser.add_argument(
@@ -1451,7 +1513,6 @@ def get_arguments():
         help = "smoothness for approximating curves with line segments (float)",
         default = 10.0,
     )
-
     parser.add_argument(
         '--format',
         type = str,
@@ -1460,6 +1521,15 @@ def get_arguments():
         choices = [ 'legacy', 'pretty' ],
         help = "output module file format (legacy|pretty)",
         default = 'pretty',
+    )
+
+    parser.add_argument(
+        '--name', '--module-name',
+        type = str,
+        dest = 'module_name',
+        metavar = 'NAME',
+        help = "base name of the module",
+        default = "svg2mod",
     )
 
     parser.add_argument(
@@ -1473,30 +1543,12 @@ def get_arguments():
     )
 
     parser.add_argument(
-        '-d', '--dpi',
-        type = int,
-        dest = 'dpi',
-        metavar = 'DPI',
-        help = "DPI of the SVG file (int)",
-        default = DEFAULT_DPI,
-    )
-
-    parser.add_argument(
-        '--center',
-        dest = 'center',
-        action = 'store_const',
-        const = True,
-        help = "Center the module to the center of the bounding box",
-        default = False,
-    )
-
-    parser.add_argument(
-        '-x',
-        dest = 'ignore_hidden_layers',
-        action = 'store_const',
-        const = True,
-        help = "Do not export hidden layers",
-        default = False,
+        '--value', '--module-value',
+        type = str,
+        dest = 'module_value',
+        metavar = 'VALUE',
+        help = "value of the module",
+        default = "G***",
     )
 
     return parser.parse_args(), parser

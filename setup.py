@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os
 import setuptools
 
 
@@ -13,6 +14,13 @@ except ImportError:
 with open('README.md') as readme_file:
     readme = readme_file.read()
 
+tag = ""
+
+try:
+    tag = os.popen("git describe --tag")._stream.read().strip()
+except:
+    tag = "develpment"
+
 requirements = [
 ]
 
@@ -22,7 +30,7 @@ test_requirements = [
 
 setup(
     name='svg2mod',
-    version='0.1.1',
+    version=tag,
     description="Convert an SVG file to a KiCad footprint.",
     long_description_content_type='text/markdown',
     long_description=readme,
