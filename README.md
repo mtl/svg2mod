@@ -1,5 +1,12 @@
 # svg2mod
-[![Build Status](https://travis-ci.org/svg2mod/svg2mod.svg?branch=master)](https://travis-ci.org/svg2mod/svg2mod)
+[![Build Status](https://travis-ci.com/svg2mod/svg2mod.svg?branch=master)](https://travis-ci.com/svg2mod/svg2mod) [![GitHub last commit](https://img.shields.io/github/last-commit/svg2mod/svg2mod)](https://github.com/svg2mod/svg2mod/commits/master)
+
+[![PyPI - License](https://img.shields.io/pypi/l/svg2mod?color=black)](https://pypi.org/project/svg2mod/)
+
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/svg2mod)](https://pypi.org/project/svg2mod/)
+
+[![PyPI](https://img.shields.io/pypi/v/svg2mod?color=informational&label=version)](https://pypi.org/project/svg2mod/)
+
 
 __[@mtl](https://github.com/mtl) is no longer active. [https://github.com/svg2mod/svg2mod](https://github.com/svg2mod/svg2mod) is now the maintained branch.__
 
@@ -89,3 +96,4 @@ This supports the layers listed below. They are the same in inkscape and kicad:
 | B.CrtYd          | --           | Yes          |
 
 Note: If you have a layer "F.Cu", all of its sub-layers will be treated as "F.Cu" regardless of their names.
+
