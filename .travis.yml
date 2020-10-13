@@ -16,8 +16,8 @@ jobs:
       provider: pypi
       username: "__token__"
       password:
-        secure: "VkDOh68XBeP6bZrCnBmWoKz2eRZeKek/29M2tzC3I42wci2KFWCRJEiXfIAq1qwl4lw1RUVtSc6XrJNskgxKVrZgGNZTp7slLZNOBRMA/A/NHwF65OuBxwPta9o0l5kUWYc72AkXUD/uaWN9NLrJrMw/HSoFPdl8reWzJq4zUpJPP0/dDvcNe4oFbqUvDdV9ZaVbd9m9kvaY/KvjCiJ36tTRHFac66y5fLz3heKVPwXQT+qYG2NCM1o8Iik16+zCbxIrTtHCpb8sYXTmHBuVHacmy2xG1TPIvkIG+toSfK+cQHBLjyZXIcgfmIlusxQ+Acdv2QSDOT1Miyhdz+MRFYC7UQIDQn39mE4gLOy9ljYoU/v4TwzZ5xjC0cfp9D3N2Bt7STkM9u/Ft6jEXsVfvJ0MbHu4UDk/xK5AngDk8g3F46sje01yfc8D43Ghgb4Ixd9i76VkXm6RRSKZwCtR1DYYYTS93yAKdALj7qdEMzbANURGI1ly9bkWWRcz30LB1Ufon6gO5LdU0mzjGEj2Yl2n22RKCtLG0mNo+I9xrXcicfpCn4mbQ25o1dvbG2ROYFWXYa/yaK/K/PjtAHa2sFEiuqSDlUFd/qfjB+37u/QPuxZSf99P5KBQ4Pc0pvCjOlGqHWI6jzhPp/S6DnyXGykuPn8/IATe9FrUFkEjDlo="
-      server: "https://test.pypi.org/legacy/"
+        secure: "xK2WHvqIcBrNxprKkA69VcdkLBZg2/sn9Dfus88VLxNWket3fwshIXzzttQndL+4cjZTkJvBWuMToYvvYCV0ZIfgOuVbY4ZeWvTAKB4CpN/gPgpcXfbbJXbN0AVtzICOaLBgdcROz5MxwJ95Dx5LG+Z2O8jYIWzHtdCgFwXlE2mbyN9/+KCKVTR7qBTtJVGr94YwuFuK11WN6tn1s681zYZFE0pJLdI+pgxW7xWZFSh680dV8clfMp4yoon47q2tmP3KI8sXbZXXYcfBu/HDB0lLrRajAAm6uIAlRNilPDzzLagJh7TL+1hzIC/J5wdMtO8NMovwcKNFjSJkPfiuv8ljphaQGqYsTiA6cK3ZMOOvpmtFlsJE+aiCDmulVVhdlydaks89Ra4MV+rYrn1z5SV6SYMDWIGiOxqfYS7D8R4RGkCx9JIb1QJO984Cju422eoa22f7ELWEcfu2IMh50m7Pv9EdKzE0Pd8XCIQl/fc21pzVa0gZiKfOAcw8l1N+9tqIw8NvFjnzg3WxfyAOZT2SPrVP1cTYGT75yPhAizCCc+aqgD3h+PnjzmOHR5zRAZnLqQW0Q9CFxXHSQnOXfYbMbHp9kWbGLT+2BOyz4mMAE/0guI7lD4OZ26QAV8sYpVrlqox44BazG5sPc1EvtkA/bCJQsl3OXcY3rfwMCRU="
       cleanup: false
       on:
+        branch: master
         tags: true
