@@ -22,7 +22,7 @@ def main():
     if pretty:
 
         if not use_mm:
-            print( "Error: decimil units only allowed with legacy output type" )
+            print( "Error: decimil units only allowed with legacy output type", file=sys.stderr )
             sys.exit( -1 )
 
         #if args.include_reverse:
@@ -37,6 +37,7 @@ def main():
         args.module_name,
         args.module_value,
         args.ignore_hidden_layers,
+        args.verbose_print,
     )
 
     # Pick an output file name if none was provided:
@@ -63,7 +64,8 @@ def main():
             args.scale_factor,
             args.precision,
             dpi = args.dpi,
-            pads = args.convert_to_pads
+            pads = args.convert_to_pads,
+            verbose = args.verbose_print,
         )
 
     else:
@@ -80,6 +82,7 @@ def main():
                     args.scale_factor,
                     args.precision,
                     args.dpi,
+                    verbose = args.verbose_print,
                 )
 
             except Exception as e:
@@ -97,6 +100,7 @@ def main():
                 args.precision,
                 use_mm = use_mm,
                 dpi = args.dpi,
+                verbose = args.verbose_print,
             )
 
     # Export the footprint:
@@ -222,16 +226,17 @@ class PolygonSegment( object ):
 
     #------------------------------------------------------------------------
 
-    def __init__( self, points ):
+    def __init__( self, points, verbose=True ):
 
         self.points = points
+        self.verbose = verbose
 
         if len( points ) < 3:
             print(
                 "Warning:"
                 " Path segment has only {} points (not a polygon?)".format(
                     len( points )
-                )
+                ), file=sys.stderr
             )
 
 
@@ -241,28 +246,29 @@ class PolygonSegment( object ):
     # and holes within it, so we search for a pair of points connecting the
     # outline (self) to the hole such that the connecting segment will not
     # cross the visible inner space within any hole.
-    def _find_insertion_point( self, hole, holes ):
-
-        #print( "      Finding insertion point.  {} holes".format( len( holes ) ) )
+    def _find_insertion_point( self, hole, holes, other_insertions ):
 
         # Try the next point on the container:
         for cp in range( len( self.points ) ):
             container_point = self.points[ cp ]
 
-            #print( "      Trying container point {}".format( cp ) )
-
             # Try the next point on the hole:
             for hp in range( len( hole.points ) - 1 ):
                 hole_point = hole.points[ hp ]
 
-                #print( "      Trying hole point {}".format( cp ) )
-
                 bridge = LineSegment( container_point, hole_point )
+
+                # Check if bridge passes over other bridges that will be created
+                bad_point = False
+                for index, insertion in other_insertions:
+                    insert = LineSegment( self.points[index], insertion[0])
+                    if bridge.intersects(insert):
+                        bad_point = True
+                if bad_point:
+                    continue
 
                 # Check for intersection with each other hole:
                 for other_hole in holes:
-
-                    #print( "      Trying other hole.  Check = {}".format( hole == other_hole ) )
 
                     # If the other hole intersects, don't bother checking
                     # remaining holes:
@@ -271,19 +277,19 @@ class PolygonSegment( object ):
                         check_connects = (
                             other_hole == hole or other_hole == self
                         )
-                    ): break
-
-                    #print( "        Hole does not intersect." )
+                    ):break
 
                 else:
-                    print( "      Found insertion point: {}, {}".format( cp, hp ) )
+                    if self.verbose:
+                        print( "      Found insertion point: {}, {}".format( cp, hp ) )
 
                     # No other holes intersected, so this insertion point
                     # is acceptable:
                     return ( cp, hole.points_starting_on_index( hp ) )
 
         print(
-            "Could not insert segment without overlapping other segments"
+            "Could not insert segment without overlapping other segments",
+            file=sys.stderr
         )
 
 
@@ -317,7 +323,8 @@ class PolygonSegment( object ):
         if len( segments ) < 1:
             return self.points
 
-        print( "    Inlining {} segments...".format( len( segments ) ) )
+        if self.verbose:
+            print( "    Inlining {} segments...".format( len( segments ) ) )
 
         all_segments = segments[ : ] + [ self ]
         insertions = []
@@ -326,7 +333,7 @@ class PolygonSegment( object ):
         for hole in segments:
 
             insertion = self._find_insertion_point(
-                hole, all_segments
+                hole, all_segments, insertions
             )
             if insertion is not None:
                 insertions.append( insertion )
@@ -452,22 +459,24 @@ class Svg2ModImport( object ):
             if not isinstance( item, svg.Group ):
                 continue
 
-            if( item.hidden ):
-                print("Ignoring hidden SVG layer: {}".format( item.name ) )
-            else:
+            if item.hidden :
+                if self.verbose:
+                    print("Ignoring hidden SVG layer: {}".format( item.name ) )
+            elif item.name is not "":
                 self.svg.items.append( item )
 
             if(item.items):
                 self._prune_hidden( item.items )
 
-    def __init__( self, file_name, module_name, module_value, ignore_hidden_layers ):
+    def __init__( self, file_name, module_name, module_value, ignore_hidden_layers, verbose_print ):
 
         self.file_name = file_name
         self.module_name = module_name
         self.module_value = module_value
+        self.verbose = verbose_print
 
         print( "Parsing SVG..." )
-        self.svg = svg.parse( file_name )
+        self.svg = svg.parse( file_name, verbose_print )
         if( ignore_hidden_layers ):
             self._prune_hidden()
 
@@ -477,6 +486,8 @@ class Svg2ModImport( object ):
 #----------------------------------------------------------------------------
 
 class Svg2ModExport( object ):
+
+    verbose = True
 
     #------------------------------------------------------------------------
 
@@ -542,6 +553,7 @@ class Svg2ModExport( object ):
         use_mm = True,
         dpi = DEFAULT_DPI,
         pads = False,
+        verbose = True
     ):
         if use_mm:
             # 25.4 mm/in;
@@ -559,6 +571,7 @@ class Svg2ModExport( object ):
         self.use_mm = use_mm
         self.dpi = dpi
         self.convert_pads = pads
+        self.verbose = verbose
 
     #------------------------------------------------------------------------
 
@@ -603,7 +616,7 @@ class Svg2ModExport( object ):
 
             for name in self.layers.keys():
                 #if re.search( name, item.name, re.I ):
-                if name == item.name:
+                if name == item.name and item.name is not "":
                     print( "Found SVG layer: {}".format( item.name ) )
 
                     self.imported.svg.items.append( item )
@@ -626,7 +639,7 @@ class Svg2ModExport( object ):
             elif isinstance( item, svg.Path ):
 
                 segments = [
-                    PolygonSegment( segment )
+                    PolygonSegment( segment, verbose=self.verbose )
                     for segment in item.segments(
                         precision = self.precision
                     )
@@ -648,9 +661,10 @@ class Svg2ModExport( object ):
                         stroke_width
                     )
 
-                print( "    Writing polygon with {} points".format(
-                    len( points ) )
-                )
+                if self.verbose:
+                    print( "    Writing polygon with {} points".format(
+                        len( points ) )
+                    )
 
                 self._write_polygon(
                     points, layer, fill, stroke, stroke_width
@@ -659,7 +673,7 @@ class Svg2ModExport( object ):
             else:
                 print( "Unsupported SVG element: {}".format(
                     item.__class__.__name__
-                ) )
+                ), file=sys.stderr)
 
 
     #------------------------------------------------------------------------
@@ -810,6 +824,7 @@ class Svg2ModExportLegacy( Svg2ModExport ):
         precision = 20.0,
         use_mm = True,
         dpi = DEFAULT_DPI,
+        verbose = True,
     ):
         super( Svg2ModExportLegacy, self ).__init__(
             svg2mod_import,
@@ -819,6 +834,8 @@ class Svg2ModExportLegacy( Svg2ModExport ):
             precision,
             use_mm,
             dpi,
+            pads = False,
+            verbose = verbose
         )
 
         self.include_reverse = True
@@ -1002,6 +1019,7 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
         precision = 20.0,
         dpi = DEFAULT_DPI,
         include_reverse = True,
+        verbose = True
     ):
         self.file_name = file_name
         use_mm = self._parse_output_file()
@@ -1014,6 +1032,7 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
             precision,
             use_mm,
             dpi,
+            verbose = verbose,
         )
 
 
@@ -1021,7 +1040,8 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
 
     def _parse_output_file( self ):
 
-        print( "Parsing module file: {}".format( self.file_name ) )
+        if self.verbose:
+            print( "Parsing module file: {}".format( self.file_name ) )
         module_file = open( self.file_name, 'r' )
         lines = module_file.readlines()
         module_file.close()
@@ -1044,7 +1064,6 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
 
             m = re.match( "Units[\s]+mm[\s]*", line )
             if m is not None:
-                print( "  Use mm detected" )
                 use_mm = True
 
         # Read the index:
@@ -1102,7 +1121,8 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
         m = re.match( r'\$MODULE[\s]+([^\s]+)[\s]*', lines[ index ] )
         module_name = m.group( 1 )
 
-        print( "  Reading module {}".format( module_name ) )
+        if self.verbose:
+            print( "  Reading module {}".format( module_name ) )
 
         index += 1
         module_lines = []
@@ -1475,6 +1495,15 @@ def get_arguments():
         action = 'store_const',
         const = True,
         help = "Convert any artwork on Cu layers to pads",
+        default = False,
+    )
+
+    parser.add_argument(
+        '-v', '--verbose',
+        dest = 'verbose_print',
+        action = 'store_const',
+        const = True,
+        help = "Print more verbose messages",
         default = False,
     )
 

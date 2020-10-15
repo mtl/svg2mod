@@ -51,9 +51,10 @@ unit_convert = {
 
 class Transformable:
     '''Abstract class for objects that can be geometrically drawn & transformed'''
-    def __init__(self, elt=None):
+    def __init__(self, elt=None, verbose=True):
         # a 'Transformable' is represented as a list of Transformable items
         self.items = []
+        self.verbose = verbose
         self.id = hex(id(self))
         # Unit transformation matrix on init
         self.matrix = Matrix()
@@ -94,7 +95,8 @@ class Transformable:
             op = op.strip()
             # Keep only numbers
             arg = [float(x) for x in re.findall(number_re, arg)]
-            print('transform: ' + op + ' '+ str(arg))
+            if self.verbose:
+                print('transform: ' + op + ' '+ str(arg))
 
             if op == 'matrix':
                 self.matrix *= Matrix(arg)
@@ -204,8 +206,8 @@ class Svg(Transformable):
     # class Svg handles the <svg> tag
     # tag = 'svg'
 
-    def __init__(self, filename=None):
-        Transformable.__init__(self)
+    def __init__(self, filename=None, verbose=True):
+        Transformable.__init__(self, verbose=verbose)
         if filename:
             self.parse(filename)
 
@@ -217,7 +219,7 @@ class Svg(Transformable):
             raise TypeError('file %s does not seem to be a valid SVG file', filename)
 
         # Create a top Group to group all other items (useful for viewBox elt)
-        top_group = Group()
+        top_group = Group(verbose=self.verbose)
         self.items.append(top_group)
 
         # SVG dimension
@@ -256,8 +258,8 @@ class Group(Transformable):
     # class Group handles the <g> tag
     tag = 'g'
 
-    def __init__(self, elt=None):
-        Transformable.__init__(self, elt)
+    def __init__(self, elt=None, verbose=True):
+        Transformable.__init__(self, elt, verbose)
 
         self.name = ""
         self.hidden = False
@@ -283,10 +285,11 @@ class Group(Transformable):
         for elt in element:
             elt_class = svgClass.get(elt.tag, None)
             if elt_class is None:
-                print('No handler for element %s' % elt.tag)
+                if self.verbose:
+                    print('No handler for element %s' % elt.tag)
                 continue
             # instanciate elt associated class (e.g. <path>: item = Path(elt)
-            item = elt_class(elt)
+            item = elt_class(elt, verbose=self.verbose)
             # Apply group matrix to the newly created object
             # Actually, this is effectively done in Svg.__init__() through call to
             # self.transform(), so doing it here will result in the transformations
@@ -357,8 +360,8 @@ class Path(Transformable):
     # class Path handles the <path> tag
     tag = 'path'
 
-    def __init__(self, elt=None):
-        Transformable.__init__(self, elt)
+    def __init__(self, elt=None, verbose=True):
+        Transformable.__init__(self, elt, verbose)
         if elt is not None:
             self.style = elt.get('style')
             self.parse(elt.get('d'))
@@ -537,8 +540,8 @@ class Ellipse(Transformable):
     # class Ellipse handles the <ellipse> tag
     tag = 'ellipse'
 
-    def __init__(self, elt=None):
-        Transformable.__init__(self, elt)
+    def __init__(self, elt=None, verbose=True):
+        Transformable.__init__(self, elt, verbose)
         if elt is not None:
             self.center = Point(self.xlength(elt.get('cx')),
                                 self.ylength(elt.get('cy')))
@@ -615,8 +618,8 @@ class Rect(Transformable):
     # class Rect handles the <rect> tag
     tag = 'rect'
 
-    def __init__(self, elt=None):
-        Transformable.__init__(self, elt)
+    def __init__(self, elt=None, verbose=True):
+        Transformable.__init__(self, elt, verbose)
         if elt is not None:
             self.P1 = Point(self.xlength(elt.get('x')),
                             self.ylength(elt.get('y')))
@@ -657,8 +660,8 @@ class Line(Transformable):
     # class Line handles the <line> tag
     tag = 'line'
 
-    def __init__(self, elt=None):
-        Transformable.__init__(self, elt)
+    def __init__(self, elt=None, verbose=True):
+        Transformable.__init__(self, elt, verbose)
         if elt is not None:
             self.P1 = Point(self.xlength(elt.get('x1')),
                             self.ylength(elt.get('y1')))
