@@ -27,7 +27,7 @@ Python 3
 
 ## Usage
 ```
-usage: svg2mod [-h] -i FILENAME [-o FILENAME] [-c] [-pads] [-x] [-d DPI]
+usage: svg2mod [-h] -i FILENAME [-o FILENAME] [-c] [-pads] [-v] [-x] [-d DPI]
                [-f FACTOR] [-p PRECISION] [--format FORMAT] [--name NAME]
                [--units UNITS] [--value VALUE]
 
@@ -42,6 +42,7 @@ optional arguments:
   -c, --center          Center the module to the center of the bounding box
   -pads, --convert-pads
                         Convert any artwork on Cu layers to pads
+  -v, --verbose         Print more verbose messages
   -x, --exclude-hidden  Do not export hidden layers
   -d DPI, --dpi DPI     DPI of the SVG file (int)
   -f FACTOR, --factor FACTOR
