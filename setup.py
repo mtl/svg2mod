@@ -52,6 +52,7 @@ setup(
         'Intended Audience :: Science/Research',
         'License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication',
         'Natural Language :: English',
+        'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.7',
     ],
     test_suite='tests',
