@@ -477,6 +477,8 @@ class Svg2ModImport( object ):
 
         print( "Parsing SVG..." )
         self.svg = svg.parse( file_name, verbose_print )
+        if verbose_print: 
+            print("Document scaling: {} units per pixel".format(self.svg.viewport_scale))
         if( ignore_hidden_layers ):
             self._prune_hidden()
 
@@ -522,6 +524,10 @@ class Svg2ModExport( object ):
                 if name == "fill" and value == "none":
                     fill = False
 
+                elif name == "fill-opacity":
+                    if float(value) == 0:
+                        fill = False
+
                 elif name == "stroke" and value == "none":
                     stroke = False
 
@@ -531,6 +537,13 @@ class Svg2ModExport( object ):
                         stroke_width = float( value ) * 25.4 / float(self.dpi)
                     else:
                         stroke_width = float( value )
+
+                    # units per pixel converted to mm
+                    scale = self.imported.svg.viewport_scale* DEFAULT_DPI / 25.4
+                    stroke_width = round(stroke_width/scale, 6) # remove unessesary presion to reduce floating point errors
+                elif name == "stroke-opacity":
+                    if float(value) == 0:
+                        stroke = False
 
         if not stroke:
             stroke_width = 0.0
