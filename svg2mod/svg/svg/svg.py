@@ -207,6 +207,7 @@ class Svg(Transformable):
     # tag = 'svg'
 
     def __init__(self, filename=None, verbose=True):
+        viewport_scale = 1
         Transformable.__init__(self, verbose=verbose)
         if filename:
             self.parse(filename)
@@ -235,6 +236,7 @@ class Svg(Transformable):
             sy = height / float(viewBox[3])
             tx = -float(viewBox[0])
             ty = -float(viewBox[1])
+            self.viewport_scale = round(float(viewBox[2])/width, 6)
             top_group.matrix = Matrix([sx, 0, 0, sy, tx, ty])
 
         # Parse XML elements hierarchically with groups <g>
@@ -482,22 +484,23 @@ class Path(Transformable):
                 flags = pathlst.pop().strip()
                 large_arc_flag = flags[0]
                 if large_arc_flag not in '01':
-                    print('Arc parsing failure')
+                    print('Arc parsing failure', file=sys.error)
                     break
 
                 if len(flags) > 1:  flags = flags[1:].strip()
                 else:               flags = pathlst.pop().strip()
                 sweep_flag = flags[0]
                 if sweep_flag not in '01':
-                    print('Arc parsing failure')
+                    print('Arc parsing failure', file=sys.error)
                     break
 
                 if len(flags) > 1:  x = flags[1:]
                 else:               x = pathlst.pop()
                 y = pathlst.pop()
                 # TODO
-                print('ARC: ' +
-                    ', '.join([rx, ry, xrot, large_arc_flag, sweep_flag, x, y]))
+                if self.verbose:
+                    print('ARC: ' +
+                        ', '.join([rx, ry, xrot, large_arc_flag, sweep_flag, x, y]))
 #                self.items.append(
 #                    Arc(rx, ry, xrot, large_arc_flag, sweep_flag, Point(x, y)))
 
@@ -559,9 +562,10 @@ class Ellipse(Transformable):
         return (pmin, pmax)
 
     def transform(self, matrix):
-        self.center = self.matrix * self.center
-        self.rx = self.matrix.xlength(self.rx)
-        self.ry = self.matrix.ylength(self.ry)
+        self.center = matrix * self.center
+        self.rx = matrix.xlength(self.rx)
+        self.ry = matrix.ylength(self.ry)
+
 
     def scale(self, ratio):
         self.center *= ratio
@@ -604,11 +608,11 @@ class Circle(Ellipse):
     # class Circle handles the <circle> tag
     tag = 'circle'
 
-    def __init__(self, elt=None):
+    def __init__(self, elt=None, verbose=True):
         if elt is not None:
             elt.set('rx', elt.get('r'))
             elt.set('ry', elt.get('r'))
-        Ellipse.__init__(self, elt)
+        Ellipse.__init__(self, elt, verbose=verbose)
 
     def __repr__(self):
         return '<Circle ' + self.id + '>'
@@ -626,6 +630,7 @@ class Rect(Transformable):
 
             self.P2 = Point(self.P1.x + self.xlength(elt.get('width')),
                             self.P1.y + self.ylength(elt.get('height')))
+            self.style = elt.get('style')
 
     def __repr__(self):
         return '<Rect ' + self.id + '>'
@@ -640,8 +645,8 @@ class Rect(Transformable):
         return (Point(xmin,ymin), Point(xmax,ymax))
 
     def transform(self, matrix):
-        self.P1 = self.matrix * self.P1
-        self.P2 = self.matrix * self.P2
+        self.P1 = matrix * self.P1
+        self.P2 = matrix * self.P2
 
     def segments(self, precision=0):
         # A rectangle is built with a segment going thru 4 points
@@ -682,8 +687,8 @@ class Line(Transformable):
         return (Point(xmin,ymin), Point(xmax,ymax))
 
     def transform(self, matrix):
-        self.P1 = self.matrix * self.P1
-        self.P2 = self.matrix * self.P2
+        self.P1 = matrix * self.P1
+        self.P2 = matrix * self.P2
         self.segment = Segment(self.P1, self.P2)
 
     def segments(self, precision=0):
