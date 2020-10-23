@@ -534,13 +534,16 @@ class Svg2ModExport( object ):
                 elif name == "stroke-width":
                     if value.endswith("px"):
                         value = value.replace( "px", "" )
-                        stroke_width = float( value ) * 25.4 / float(self.dpi)
+                        stroke_width = float( value )
                     else:
                         stroke_width = float( value )
 
                     # units per pixel converted to mm
-                    scale = self.imported.svg.viewport_scale* DEFAULT_DPI / 25.4
-                    stroke_width = round(stroke_width/scale, 6) # remove unessesary presion to reduce floating point errors
+                    scale = self.imported.svg.viewport_scale * float(self.dpi) / 25.4
+
+                    # remove unessesary presion to reduce floating point errors
+                    stroke_width = round(stroke_width/scale, 6)
+
                 elif name == "stroke-opacity":
                     if float(value) == 0:
                         stroke = False
@@ -649,7 +652,11 @@ class Svg2ModExport( object ):
                 self._write_items( item.items, layer, flip )
                 continue
 
-            elif isinstance( item, svg.Path ):
+            elif (
+                    isinstance( item, svg.Path ) or
+                    isinstance( item, svg.Ellipse) or
+                    isinstance( item, svg.Rect )
+                ):
 
                 segments = [
                     PolygonSegment( segment, verbose=self.verbose )
