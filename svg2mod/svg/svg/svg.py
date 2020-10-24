@@ -58,6 +58,7 @@ class Transformable:
         self.id = hex(id(self))
         # Unit transformation matrix on init
         self.matrix = Matrix()
+        self.rotation = 0
         self.viewport = Point(800, 600) # default viewport is 800x600
         if elt is not None:
             self.id = elt.get('id', self.id)
@@ -114,6 +115,7 @@ class Transformable:
                 self.matrix *= Matrix([sx, 0, 0, sy, 0, 0])
 
             if op == 'rotate':
+                self.rotation += arg[0]
                 cosa = math.cos(math.radians(arg[0]))
                 sina = math.sin(math.radians(arg[0]))
                 if len(arg) != 1:
@@ -484,14 +486,14 @@ class Path(Transformable):
                 flags = pathlst.pop().strip()
                 large_arc_flag = flags[0]
                 if large_arc_flag not in '01':
-                    print('Arc parsing failure', file=sys.error)
+                    print('\033[91mArc parsing failure\033[0m', file=sys.error)
                     break
 
                 if len(flags) > 1:  flags = flags[1:].strip()
                 else:               flags = pathlst.pop().strip()
                 sweep_flag = flags[0]
                 if sweep_flag not in '01':
-                    print('Arc parsing failure', file=sys.error)
+                    print('\033[91mArc parsing failure\033[0m', file=sys.error)
                     break
 
                 if len(flags) > 1:  x = flags[1:]
@@ -499,8 +501,10 @@ class Path(Transformable):
                 y = pathlst.pop()
                 # TODO
                 if self.verbose:
-                    print('ARC: ' +
-                        ', '.join([rx, ry, xrot, large_arc_flag, sweep_flag, x, y]))
+                    print('\033[91mUnsupported ARC: ' +
+                        ', '.join([rx, ry, xrot, large_arc_flag, sweep_flag, x, y]) + "\033[0m",
+                        file=sys.stderr
+                    )
 #                self.items.append(
 #                    Arc(rx, ry, xrot, large_arc_flag, sweep_flag, Point(x, y)))
 
@@ -561,11 +565,14 @@ class Ellipse(Transformable):
         pmax = self.center + Point(self.rx, self.ry)
         return (pmin, pmax)
 
-    def transform(self, matrix):
+    def transform(self, matrix=None):
+        if matrix is None:
+            matrix = self.matrix
+        else:
+            matrix = self.matrix * matrix
         self.center = matrix * self.center
         self.rx = matrix.xlength(self.rx)
         self.ry = matrix.ylength(self.ry)
-
 
     def scale(self, ratio):
         self.center *= ratio
@@ -583,6 +590,13 @@ class Ellipse(Transformable):
         return Point(x,y)
 
     def segments(self, precision=0):
+        if self.verbose and self.rotation % 180 != 0:
+            print(
+                    "\033[91mUnsupported rotation for {} primitive\033[0m".format(
+                        self.__class__.__name__
+                    ),
+                    file=sys.stderr
+                )
         if max(self.rx, self.ry) < precision:
             return [[self.center]]
 
@@ -631,6 +645,8 @@ class Rect(Transformable):
             self.P2 = Point(self.P1.x + self.xlength(elt.get('width')),
                             self.P1.y + self.ylength(elt.get('height')))
             self.style = elt.get('style')
+            if self.verbose and (elt.get('rx') or elt.get('ry')):
+                print("\033[91mUnsupported corner radius on rect.\033[0m", file=sys.stderr)
 
     def __repr__(self):
         return '<Rect ' + self.id + '>'
@@ -644,15 +660,32 @@ class Rect(Transformable):
 
         return (Point(xmin,ymin), Point(xmax,ymax))
 
-    def transform(self, matrix):
+    def transform(self, matrix=None):
+        if matrix is None:
+            matrix = self.matrix
+        else:
+            matrix = self.matrix*matrix
         self.P1 = matrix * self.P1
         self.P2 = matrix * self.P2
 
     def segments(self, precision=0):
         # A rectangle is built with a segment going thru 4 points
         ret = []
-        Pa = Point(self.P1.x, self.P2.y)
-        Pb = Point(self.P2.x, self.P1.y)
+        Pa, Pb = Point(0,0),Point(0,0)
+        if self.rotation % 90 == 0:
+            Pa = Point(self.P1.x, self.P2.y)
+            Pb = Point(self.P2.x, self.P1.y)
+        else:
+            sa = math.sin(math.radians(self.rotation)) / math.cos(math.radians(self.rotation))
+            sb = -1 / sa
+            ba = -sa * self.P1.x + self.P1.y
+            bb = -sb * self.P2.x + self.P2.y
+            x = (ba-bb) / (sb-sa)
+            Pa = Point(x, sa * x + ba)
+            bb = -sb * self.P1.x + self.P1.y
+            ba = -sa * self.P2.x + self.P2.y
+            x = (ba-bb) / (sb-sa)
+            Pb = Point(x, sa * x + ba)
 
         ret.append([self.P1, Pa, self.P2, Pb, self.P1])
         return ret

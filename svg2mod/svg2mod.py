@@ -22,7 +22,7 @@ def main():
     if pretty:
 
         if not use_mm:
-            print( "Error: decimil units only allowed with legacy output type", file=sys.stderr )
+            print( "\033[91mError: decimil units only allowed with legacy output type\033[0m", file=sys.stderr )
             sys.exit( -1 )
 
         #if args.include_reverse:
@@ -233,8 +233,8 @@ class PolygonSegment( object ):
 
         if len( points ) < 3:
             print(
-                "Warning:"
-                " Path segment has only {} points (not a polygon?)".format(
+                "\033[91mWarning:"
+                " Path segment has only {} points (not a polygon?)\033[0m".format(
                     len( points )
                 ), file=sys.stderr
             )
@@ -288,7 +288,7 @@ class PolygonSegment( object ):
                     return ( cp, hole.points_starting_on_index( hp ) )
 
         print(
-            "Could not insert segment without overlapping other segments",
+            "\033[91mCould not insert segment without overlapping other segments\033[0m",
             file=sys.stderr
         )
 
@@ -676,22 +676,27 @@ class Svg2ModExport( object ):
                 elif len( segments ) > 0:
                     points = segments[ 0 ].points
 
-                if not self.use_mm:
-                    stroke_width = self._convert_mm_to_decimil(
-                        stroke_width
-                    )
+                if len ( segments ) != 0:
+                    if not self.use_mm:
+                        stroke_width = self._convert_mm_to_decimil(
+                            stroke_width
+                        )
 
-                if self.verbose:
-                    print( "    Writing polygon with {} points".format(
-                        len( points ) )
-                    )
+                    if self.verbose:
+                        print( "    Writing polygon with {} points".format(
+                            len( points ) )
+                        )
 
-                self._write_polygon(
-                    points, layer, fill, stroke, stroke_width
-                )
+                    self._write_polygon(
+                        points, layer, fill, stroke, stroke_width
+                    )
+                elif self.verbose:
+                    print( "\033[91mSkipping {} with 0 points\033[0m".format(
+                        item.__class__.__name__
+                    ), file=sys.stderr)
 
             else:
-                print( "Unsupported SVG element: {}".format(
+                print( "\033[91mUnsupported SVG element: {}\033[0m".format(
                     item.__class__.__name__
                 ), file=sys.stderr)
 
