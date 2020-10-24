@@ -62,7 +62,7 @@ optional arguments:
 
 svg2mod expects images saved in the uncompressed Inkscape SVG (i.e., not "plain SVG") format.
  * Drawings should be to scale (1 mm in Inscape will be 1 mm in KiCad).  Use the --factor option to resize the resulting module(s) up or down from there.
- * Paths are fully supported Rect and Circles (Ellipse) are parially supported.
+ * Paths are fully supported Rect and Circles (Ellipse) are partially supported.
    * A path may have an outline and a fill.  (Colors will be ignored.)
    * A path may have holes, defined by interior segments within the path (see included examples).
    * A path with a filled area inside a hole will not work properly. You must split these apart into two seperate paths.
