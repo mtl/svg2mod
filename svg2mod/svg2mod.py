@@ -532,11 +532,7 @@ class Svg2ModExport( object ):
                     stroke = False
 
                 elif name == "stroke-width":
-                    if value.endswith("px"):
-                        value = value.replace( "px", "" )
-                        stroke_width = float( value )
-                    else:
-                        stroke_width = float( value )
+                    stroke_width = float( "".join(i for i in value if not i.isalpha()) )
 
                     # units per pixel converted to mm
                     scale = self.imported.svg.viewport_scale * float(self.dpi) / 25.4
