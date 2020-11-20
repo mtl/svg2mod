@@ -228,18 +228,31 @@ class Svg(Transformable):
         # SVG dimension
         width = self.xlength(self.root.get('width'))
         height = self.ylength(self.root.get('height'))
+
         # update viewport
         top_group.viewport = Point(width, height)
 
         # viewBox
         if self.root.get('viewBox') is not None:
             viewBox = re.findall(number_re, self.root.get('viewBox'))
+
+            # If the document somehow doesn't have dimentions get if from viewBox
+            if self.root.get('width') is None or self.root.get('height') is None:
+                width = float(viewBox[2])
+                height = float(viewBox[3])
+                if self.verbose:
+                    print("\033[91mUnable to find width of height properties. Falling back to viewBox.\033[0m", file=sys.stderr)
+
             sx = width / float(viewBox[2])
             sy = height / float(viewBox[3])
             tx = -float(viewBox[0])
             ty = -float(viewBox[1])
             self.viewport_scale = round(float(viewBox[2])/width, 6)
             top_group.matrix = Matrix([sx, 0, 0, sy, tx, ty])
+        if ( self.root.get("width") is None or self.root.get("height") is None ) \
+                and self.root.get("viewBox") is None:
+            print("\033[91mFatal Error: Unable to find SVG dimensions. Exiting.\033[0m", file=sys.stderr)
+            exit()
 
         # Parse XML elements hierarchically with groups <g>
         top_group.append(self.root)
