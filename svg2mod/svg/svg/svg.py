@@ -26,6 +26,7 @@ import xml.etree.ElementTree as etree
 import itertools
 import operator
 import json
+import logging
 from .geometry import *
 
 
@@ -51,10 +52,9 @@ unit_convert = {
 
 class Transformable:
     '''Abstract class for objects that can be geometrically drawn & transformed'''
-    def __init__(self, elt=None, verbose=True):
+    def __init__(self, elt=None):
         # a 'Transformable' is represented as a list of Transformable items
         self.items = []
-        self.verbose = verbose
         self.id = hex(id(self))
         # Unit transformation matrix on init
         self.matrix = Matrix()
@@ -96,8 +96,7 @@ class Transformable:
             op = op.strip()
             # Keep only numbers
             arg = [float(x) for x in re.findall(number_re, arg)]
-            if self.verbose:
-                print('transform: ' + op + ' '+ str(arg))
+            logging.debug('transform: ' + op + ' '+ str(arg))
 
             if op == 'matrix':
                 self.matrix *= Matrix(arg)
@@ -208,9 +207,9 @@ class Svg(Transformable):
     # class Svg handles the <svg> tag
     # tag = 'svg'
 
-    def __init__(self, filename=None, verbose=True):
+    def __init__(self, filename=None):
         viewport_scale = 1
-        Transformable.__init__(self, verbose=verbose)
+        Transformable.__init__(self)
         if filename:
             self.parse(filename)
 
@@ -222,7 +221,7 @@ class Svg(Transformable):
             raise TypeError('file %s does not seem to be a valid SVG file', filename)
 
         # Create a top Group to group all other items (useful for viewBox elt)
-        top_group = Group(verbose=self.verbose)
+        top_group = Group()
         self.items.append(top_group)
 
         # SVG dimension
@@ -240,8 +239,7 @@ class Svg(Transformable):
             if self.root.get('width') is None or self.root.get('height') is None:
                 width = float(viewBox[2])
                 height = float(viewBox[3])
-                if self.verbose:
-                    print("\033[91mUnable to find width of height properties. Falling back to viewBox.\033[0m", file=sys.stderr)
+                logging.warning("Unable to find width of height properties. Falling back to viewBox.")
 
             sx = width / float(viewBox[2])
             sy = height / float(viewBox[3])
@@ -251,8 +249,8 @@ class Svg(Transformable):
             top_group.matrix = Matrix([sx, 0, 0, sy, tx, ty])
         if ( self.root.get("width") is None or self.root.get("height") is None ) \
                 and self.root.get("viewBox") is None:
-            print("\033[91mFatal Error: Unable to find SVG dimensions. Exiting.\033[0m", file=sys.stderr)
-            exit()
+            logging.critical("Fatal Error: Unable to find SVG dimensions. Exiting.")
+            sys.exit(-1)
 
         # Parse XML elements hierarchically with groups <g>
         top_group.append(self.root)
@@ -275,8 +273,8 @@ class Group(Transformable):
     # class Group handles the <g> tag
     tag = 'g'
 
-    def __init__(self, elt=None, verbose=True):
-        Transformable.__init__(self, elt, verbose)
+    def __init__(self, elt=None):
+        Transformable.__init__(self, elt)
 
         self.name = ""
         self.hidden = False
@@ -302,11 +300,10 @@ class Group(Transformable):
         for elt in element:
             elt_class = svgClass.get(elt.tag, None)
             if elt_class is None:
-                if self.verbose:
-                    print('No handler for element %s' % elt.tag)
+                logging.warning('No handler for element %s' % elt.tag)
                 continue
             # instanciate elt associated class (e.g. <path>: item = Path(elt)
-            item = elt_class(elt, verbose=self.verbose)
+            item = elt_class(elt)
             # Apply group matrix to the newly created object
             # Actually, this is effectively done in Svg.__init__() through call to
             # self.transform(), so doing it here will result in the transformations
@@ -377,8 +374,8 @@ class Path(Transformable):
     # class Path handles the <path> tag
     tag = 'path'
 
-    def __init__(self, elt=None, verbose=True):
-        Transformable.__init__(self, elt, verbose)
+    def __init__(self, elt=None):
+        Transformable.__init__(self, elt)
         if elt is not None:
             self.style = elt.get('style')
             self.parse(elt.get('d'))
@@ -499,25 +496,21 @@ class Path(Transformable):
                 flags = pathlst.pop().strip()
                 large_arc_flag = flags[0]
                 if large_arc_flag not in '01':
-                    print('\033[91mArc parsing failure\033[0m', file=sys.error)
+                    logging.error("Arc parsing failure")
                     break
 
                 if len(flags) > 1:  flags = flags[1:].strip()
                 else:               flags = pathlst.pop().strip()
                 sweep_flag = flags[0]
                 if sweep_flag not in '01':
-                    print('\033[91mArc parsing failure\033[0m', file=sys.error)
+                    logging.error("Arc parsing failure")
                     break
 
                 if len(flags) > 1:  x = flags[1:]
                 else:               x = pathlst.pop()
                 y = pathlst.pop()
                 # TODO
-                if self.verbose:
-                    print('\033[91mUnsupported ARC: ' +
-                        ', '.join([rx, ry, xrot, large_arc_flag, sweep_flag, x, y]) + "\033[0m",
-                        file=sys.stderr
-                    )
+                logging.warning("Unsupported ARC: , ".join([rx, ry, xrot, large_arc_flag, sweep_flag, x, y]))
 #                self.items.append(
 #                    Arc(rx, ry, xrot, large_arc_flag, sweep_flag, Point(x, y)))
 
@@ -560,8 +553,8 @@ class Ellipse(Transformable):
     # class Ellipse handles the <ellipse> tag
     tag = 'ellipse'
 
-    def __init__(self, elt=None, verbose=True):
-        Transformable.__init__(self, elt, verbose)
+    def __init__(self, elt=None):
+        Transformable.__init__(self, elt)
         if elt is not None:
             self.center = Point(self.xlength(elt.get('cx')),
                                 self.ylength(elt.get('cy')))
@@ -603,13 +596,8 @@ class Ellipse(Transformable):
         return Point(x,y)
 
     def segments(self, precision=0):
-        if self.verbose and self.rotation % 180 != 0:
-            print(
-                    "\033[91mUnsupported rotation for {} primitive\033[0m".format(
-                        self.__class__.__name__
-                    ),
-                    file=sys.stderr
-                )
+        if self.rotation % 180 != 0:
+            logging.warning("Unsupported rotation for {} primitive".format(self.__class__.__name__))
         if max(self.rx, self.ry) < precision:
             return [[self.center]]
 
@@ -635,11 +623,11 @@ class Circle(Ellipse):
     # class Circle handles the <circle> tag
     tag = 'circle'
 
-    def __init__(self, elt=None, verbose=True):
+    def __init__(self, elt=None):
         if elt is not None:
             elt.set('rx', elt.get('r'))
             elt.set('ry', elt.get('r'))
-        Ellipse.__init__(self, elt, verbose=verbose)
+        Ellipse.__init__(self, elt)
 
     def __repr__(self):
         return '<Circle ' + self.id + '>'
@@ -649,8 +637,8 @@ class Rect(Transformable):
     # class Rect handles the <rect> tag
     tag = 'rect'
 
-    def __init__(self, elt=None, verbose=True):
-        Transformable.__init__(self, elt, verbose)
+    def __init__(self, elt=None):
+        Transformable.__init__(self, elt)
         if elt is not None:
             self.P1 = Point(self.xlength(elt.get('x')),
                             self.ylength(elt.get('y')))
@@ -658,8 +646,8 @@ class Rect(Transformable):
             self.P2 = Point(self.P1.x + self.xlength(elt.get('width')),
                             self.P1.y + self.ylength(elt.get('height')))
             self.style = elt.get('style')
-            if self.verbose and (elt.get('rx') or elt.get('ry')):
-                print("\033[91mUnsupported corner radius on rect.\033[0m", file=sys.stderr)
+            if (elt.get('rx') or elt.get('ry')):
+                logging.warning("Unsupported corner radius on rect.")
 
     def __repr__(self):
         return '<Rect ' + self.id + '>'
@@ -711,8 +699,8 @@ class Line(Transformable):
     # class Line handles the <line> tag
     tag = 'line'
 
-    def __init__(self, elt=None, verbose=True):
-        Transformable.__init__(self, elt, verbose)
+    def __init__(self, elt=None):
+        Transformable.__init__(self, elt)
         if elt is not None:
             self.P1 = Point(self.xlength(elt.get('x1')),
                             self.ylength(elt.get('y1')))

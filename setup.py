@@ -19,7 +19,7 @@ tag = ""
 try:
     tag = os.popen("git describe --tag")._stream.read().strip()
 except:
-    tag = "develpment"
+    tag = "development"
 
 requirements = [
 ]
