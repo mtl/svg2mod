@@ -1,3 +1,7 @@
+# A simple modification to the formatter class in the python logger to allow
+# ANSI color codes based on the logged message's level
+
+import sys
 import logging
 
 
@@ -9,7 +13,7 @@ class Formatter(logging.Formatter):
         logging.DEBUG: "\033[90m", #Set dark gray/black
         logging.INFO: "" #Do nothing
     }
-    reset = "\033[0m"
+    reset = "\033[0m" # Reset the terminal back to default color/emphasis
     def __init__(self, fmt="%(message)s", datefmt=None, style="%"):
         super().__init__(fmt, datefmt, style)
 
@@ -19,3 +23,17 @@ class Formatter(logging.Formatter):
         result = logging.Formatter.format(self, record)
         self._style._fmt = fmt_org
         return result
+
+def split_logger(logger, formatter=Formatter(), breakpoint=logging.WARNING):
+    hdlrerr = logging.StreamHandler(sys.stderr)
+    hdlrerr.addFilter(lambda msg: breakpoint <= msg.levelno)
+
+    hdlrout = logging.StreamHandler(sys.stdout)
+    hdlrout.addFilter(lambda msg: breakpoint > msg.levelno)
+
+    hdlrerr.setFormatter(formatter)
+    hdlrout.setFormatter(formatter)
+    logger.addHandler(hdlrerr)
+    logger.addHandler(hdlrout)
+
+    

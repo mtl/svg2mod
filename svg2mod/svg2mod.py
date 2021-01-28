@@ -1,12 +1,11 @@
 
 import argparse
 import datetime
-import os
-import re
-import svg2mod.svg as svg
 import logging
+import os, sys, re
+
+import svg2mod.svg as svg
 import svg2mod.coloredlogger as coloredlogger
-import sys
 
 
 #----------------------------------------------------------------------------
@@ -22,16 +21,7 @@ def main():
 
 
     # Setup root logger to use terminal colored outputs as well as stdout and stderr
-    error_handler = logging.StreamHandler(sys.stderr)
-    error_handler.setFormatter(coloredlogger.Formatter())
-    error_handler.addFilter(lambda record: logging.WARNING <= record.levelno) # Send logs with level ERROR and above to stderr
-
-    log_handler = logging.StreamHandler(sys.stdout)
-    log_handler.setFormatter(coloredlogger.Formatter())
-    log_handler.addFilter(lambda record: logging.WARNING > record.levelno) # Send logs with level INFO and below to stdout
-
-    logging.root.addHandler(error_handler)
-    logging.root.addHandler(log_handler)
+    coloredlogger.split_logger(logging.root)
 
     if args.verbose_print:
         logging.root.setLevel(logging.INFO)

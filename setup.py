@@ -46,7 +46,7 @@ setup(
     install_requires=requirements,
     license="CC0-1.0",
     zip_safe=False,
-    keywords='svg2mod, KiCAD',
+    keywords='svg2mod, KiCAD, inkscape',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',

@@ -1,10 +1,9 @@
 # svg2mod
-[![Build Status](https://travis-ci.com/svg2mod/svg2mod.svg?branch=master)](https://travis-ci.com/svg2mod/svg2mod) [![GitHub last commit](https://img.shields.io/github/last-commit/svg2mod/svg2mod)](https://github.com/svg2mod/svg2mod/commits/master)
+[![Build Status](https://travis-ci.com/svg2mod/svg2mod.svg?branch=master)](https://travis-ci.com/svg2mod/svg2mod)
+[![GitHub last commit](https://img.shields.io/github/last-commit/svg2mod/svg2mod)](https://github.com/svg2mod/svg2mod/commits/master)
 
 [![PyPI - License](https://img.shields.io/pypi/l/svg2mod?color=black)](https://pypi.org/project/svg2mod/)
-
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/svg2mod)](https://pypi.org/project/svg2mod/)
-
 [![PyPI](https://img.shields.io/pypi/v/svg2mod?color=informational&label=version)](https://pypi.org/project/svg2mod/)
 
 
@@ -27,9 +26,9 @@ Python 3
 
 ## Usage
 ```
-usage: svg2mod [-h] -i FILENAME [-o FILENAME] [-c] [-pads] [-v] [-x] [-d DPI]
-               [-f FACTOR] [-p PRECISION] [--format FORMAT] [--name NAME]
-               [--units UNITS] [--value VALUE]
+usage: svg2mod [-h] -i FILENAME [-o FILENAME] [-c] [-pads] [-v] [--debug] [-x]
+               [-d DPI] [-f FACTOR] [-p PRECISION] [--format FORMAT]
+               [--name NAME] [--units UNITS] [--value VALUE]
 
 Convert Inkscape SVG drawings to KiCad footprint modules.
 
@@ -43,6 +42,7 @@ optional arguments:
   -pads, --convert-pads
                         Convert any artwork on Cu layers to pads
   -v, --verbose         Print more verbose messages
+  --debug               Print debug level messages
   -x, --exclude-hidden  Do not export hidden layers
   -d DPI, --dpi DPI     DPI of the SVG file (int)
   -f FACTOR, --factor FACTOR
