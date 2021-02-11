@@ -209,7 +209,7 @@ class Svg(Transformable):
     # tag = 'svg'
 
     def __init__(self, filename=None, verbose=True):
-        viewport_scale = 1
+        self.viewport_scale = 1
         Transformable.__init__(self, verbose=verbose)
         if filename:
             self.parse(filename)
