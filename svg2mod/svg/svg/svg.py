@@ -189,21 +189,6 @@ class Transformable:
             i += 1
         return flat
 
-    def scale(self, ratio):
-        for x in self.items:
-            x.scale(ratio)
-        return self
-
-    def translate(self, offset):
-        for x in self.items:
-            x.translate(offset)
-        return self
-
-    def rotate(self, angle):
-        for x in self.items:
-            x.rotate(angle)
-        return self
-
 class Svg(Transformable):
     '''SVG class: use parse to parse a file'''
     # class Svg handles the <svg> tag
@@ -587,15 +572,6 @@ class Ellipse(Transformable):
         self.center = matrix * self.center
         self.rx = matrix.xlength(self.rx)
         self.ry = matrix.ylength(self.ry)
-
-    def scale(self, ratio):
-        self.center *= ratio
-        self.rx *= ratio
-        self.ry *= ratio
-    def translate(self, offset):
-        self.center += offset
-    def rotate(self, angle):
-        self.center = self.center.rot(angle)
 
     def P(self, t):
         '''Return a Point on the Ellipse for t in [0..1]'''
