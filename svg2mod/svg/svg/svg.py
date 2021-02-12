@@ -22,6 +22,7 @@ import sys
 import os
 import copy
 import re
+import math
 import xml.etree.ElementTree as etree
 import itertools
 import operator
