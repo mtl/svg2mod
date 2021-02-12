@@ -568,7 +568,7 @@ class Ellipse(Transformable):
         if matrix is None:
             matrix = self.matrix
         else:
-            matrix = self.matrix * matrix
+            matrix *= self.matrix
         self.center = matrix * self.center
         self.rx = matrix.xlength(self.rx)
         self.ry = matrix.ylength(self.ry)
@@ -654,7 +654,7 @@ class Rect(Transformable):
         if matrix is None:
             matrix = self.matrix
         else:
-            matrix = self.matrix*matrix
+            matrix *= self.matrix
         self.P1 = matrix * self.P1
         self.P2 = matrix * self.P2
 
@@ -710,6 +710,10 @@ class Line(Transformable):
         return (Point(xmin,ymin), Point(xmax,ymax))
 
     def transform(self, matrix):
+        if matrix is None:
+            matrix = self.matrix
+        else:
+            matrix *= self.matrix
         self.P1 = matrix * self.P1
         self.P2 = matrix * self.P2
         self.segment = Segment(self.P1, self.P2)
