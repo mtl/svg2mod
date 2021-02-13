@@ -795,7 +795,7 @@ class Svg2ModExport( object ):
         self._prune()
 
         # Must come after pruning:
-        translation = self._calculate_translation()
+        self._calculate_translation()
 
         print( "Writing module file: {}".format( self.file_name ) )
         self.output_file = open( self.file_name, 'w' )
