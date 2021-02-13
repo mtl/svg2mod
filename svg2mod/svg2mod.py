@@ -1564,7 +1564,7 @@ def get_arguments():
         type = float,
         dest = 'precision',
         metavar = 'PRECISION',
-        help = "smoothness for approximating curves with line segments (float)",
+        help = "smoothness for approximating curves with line segments. Input is the approximate length for each line segment in SVG pixels (float)",
         default = 10.0,
     )
     parser.add_argument(
