@@ -7,8 +7,6 @@
 [![PyPI](https://img.shields.io/pypi/v/svg2mod?color=informational&label=version)](https://pypi.org/project/svg2mod/)
 
 
-__[@mtl](https://github.com/mtl) is no longer active. [https://github.com/svg2mod/svg2mod](https://github.com/svg2mod/svg2mod) is now the maintained branch.__
-
 This is a small program to convert Inkscape SVG drawings to KiCad footprint module files.  It uses [a fork of cjlano's python SVG parser and drawing module](https://github.com/svg2mod/svg) to interpret drawings and approximate curves using straight line segments.  Module files can be output in KiCad's legacy or s-expression (i.e., pretty) formats.
 
 ## Requirements
@@ -17,12 +15,12 @@ Python 3
 
 ## Installation
 
-```pip3 install svg2mod```
+```pip install svg2mod```
 
 
 ## Example
 
-```svg2mod -i input.svg -p 1.0```
+```svg2mod -i input.svg```
 
 ## Usage
 ```
@@ -60,18 +58,18 @@ optional arguments:
 
 ## SVG Files
 
-svg2mod expects images saved in the uncompressed Inkscape SVG (i.e., not "plain SVG") format.
+svg2mod expects images saved in the uncompressed Inkscape SVG (i.e., not "plain SVG") format. This is so it can associate inkscape layers with kicad layers
  * Drawings should be to scale (1 mm in Inscape will be 1 mm in KiCad).  Use the --factor option to resize the resulting module(s) up or down from there.
- * Paths are fully supported Rect and Circles (Ellipse) are partially supported.
+ * Paths are fully supported Rect and Arcs are partially supported.
    * A path may have an outline and a fill.  (Colors will be ignored.)
    * A path may have holes, defined by interior segments within the path (see included examples).
    * A path with a filled area inside a hole will not work properly. You must split these apart into two seperate paths.
-   * Transparent fills and strokes with be ignored.
+   * If the arc end points are outside of the ellipse created from the same info. Ie. it radii are too small it will not scale it to size properly.
+   * 100% Transparent fills and strokes with be ignored.
    * Rect supports rotations, but not corner radii.
-   * Ellipses do not support rotation.
  * Groups may be used.  However, styles applied to groups (e.g., stroke-width) are not applied to contained drawing elements.  In these cases, it may be necessary to ungroup (and perhaps regroup) the elements.
- * Layers must be named to match the target in kicad. The supported layers are listed below.
- * Other types of elements such as arc are not supported.
+ * Layers must be named to match the target in kicad. The supported layers are listed below. They will be ignored otherwise.
+ * If there is an issue parsing an inkscape object or stroke convert it to a path.
    * Use Inkscape's "Path->Object To Path" and "Path->Stroke To Path" menu options to convert these elements into paths that will work.
 
 ### Layers

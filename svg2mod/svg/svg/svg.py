@@ -510,9 +510,10 @@ class Path(Transformable):
                 else:               x = pathlst.pop()
                 y = pathlst.pop()
                 # TODO
-                logging.warning("Unsupported ARC: , ".join([rx, ry, xrot, large_arc_flag, sweep_flag, x, y]))
-#                self.items.append(
-#                    Arc(rx, ry, xrot, large_arc_flag, sweep_flag, Point(x, y)))
+                self.items.append(
+                Arc(current_pt, rx, ry, xrot, large_arc_flag, sweep_flag, Point(x, y)))
+                #Arc(current_pt, rx, ry, xrot, large_arc_flag, sweep_flag, Point(x, y))
+                current_pt = Point(x, y)
 
             else:
                 pathlst.pop()
@@ -567,6 +568,7 @@ class Ellipse(Transformable):
 
     def bbox(self):
         '''Bounding box'''
+        #TODO change bounding box dependent on rotation
         pmin = self.center - Point(self.rx, self.ry)
         pmax = self.center + Point(self.rx, self.ry)
         return (pmin, pmax)
@@ -591,13 +593,12 @@ class Ellipse(Transformable):
 
     def P(self, t):
         '''Return a Point on the Ellipse for t in [0..1]'''
+        #TODO change point cords if rotaion
         x = self.center.x + self.rx * math.cos(2 * math.pi * t)
         y = self.center.y + self.ry * math.sin(2 * math.pi * t)
         return Point(x,y)
 
     def segments(self, precision=0):
-        if self.rotation % 180 != 0:
-            logging.warning("Unsupported rotation for {} primitive".format(self.__class__.__name__))
         if max(self.rx, self.ry) < precision:
             return [[self.center]]
 
@@ -611,11 +612,147 @@ class Ellipse(Transformable):
                 p.append((t, self.P(t)))
             p.sort(key=operator.itemgetter(0))
 
-        ret = [x for t,x in p]
+        ret = [x.rot(math.radians(self.rotation), x=self.center.x, y=self.center.y) for t,x in p]
         return [ret]
 
     def simplify(self, precision):
         return self
+
+# An arc is an ellipse with a begining and an end point instead of an entire circumference 
+class Arc(Ellipse):
+    '''SVG <ellipse>'''
+    # class Ellipse handles the <ellipse> tag
+    tag = 'ellipse'
+
+    def __init__(self, start_pt, rx, ry, xrot, large_arc_flag, sweep_flag, end_pt):
+        try:
+            self.rx = float(rx)
+            self.ry = float(ry)
+            self.rotation = float(xrot)
+            self.large_arc_flag = large_arc_flag=='1'
+            self.sweep_flag = sweep_flag=='1'
+        except:
+            pass
+        self.end_pts = [start_pt, end_pt]
+
+        self.calcuate_center()
+        Ellipse.__init__(self, None)
+        #logging.debug(type(self.center))
+
+    def __repr__(self):
+        return '<Arc ' + self.id + '>'
+    
+    def calcuate_center(self):
+        angle = Angle(math.radians(self.rotation))
+        pts = self.end_pts
+
+        # set some variables that are used often to decrease size of final equations
+        cs2 = 2*angle.cos*angle.sin*(math.pow(self.ry, 2) - math.pow(self.rx, 2))
+        rs = (math.pow(self.ry*angle.sin, 2) + math.pow(self.rx*angle.cos, 2))
+        rc = (math.pow(self.ry*angle.cos, 2) + math.pow(self.rx*angle.sin, 2))
+        
+        
+        # Create a line that passes through both intersection points
+        y = -pts[0].x*(cs2) + pts[1].x*cs2 - 2*pts[0].y*rs + 2*pts[1].y*rs
+        # Round to prevent floating point errors
+        y = round(y, 10)
+        # A vertical line will break the program so we cannot calculate with these equations
+        if y != 0:
+            # Finish calculating the line
+            m = ( -2*pts[0].x*rc + 2*pts[1].x*rc - pts[0].y*cs2 + pts[1].y*cs2 ) / -y
+            b = ( math.pow(pts[0].x,2)*rc - math.pow(pts[1].x,2)*rc + pts[0].x*pts[0].y*cs2 - pts[1].x*pts[1].y*cs2 + math.pow(pts[0].y,2)*(rs) - math.pow(pts[1].y,2)*rs ) / -y
+        
+            # Now that we have a line we can setup a quadratic equation to solve for all intersection points
+            qa = rc + m*cs2 + math.pow(m,2)*rs
+            qb = -2*pts[0].x*rc + b*cs2 - pts[0].y*cs2 - m*pts[0].x*cs2 + 2*m*b*rs - 2*pts[0].y*m*rs
+            qc = math.pow(pts[0].x,2)*rc - b*pts[0].x*cs2 + pts[0].x*pts[0].y*cs2 + math.pow(b,2)*rs - 2*b*pts[0].y*rs + math.pow(pts[0].y,2)*rs - math.pow(self.rx*self.ry, 2)
+        
+        else:
+            # When the slope is vertical we need to calculate with x instead of y
+            x = (pts[0].x+pts[1].x)/2
+            m=0
+            b=x
+        
+            # The quadratic formula but solving for y instead of x and only when the slope is vertical
+            qa = rs
+            qb =  x*cs2 - pts[0].x*cs2 - 2*pts[0].y*rs
+            qc = math.pow(x,2)*rc - 2*x*pts[0].x*rc + math.pow(pts[0].x,2)*rc - x*pts[0].y*cs2 + pts[0].x*pts[0].y*cs2 + math.pow(pts[0].y,2)*rs - math.pow(self.rx*self.ry, 2)
+        
+        # This is the value to see how many real solutions the quadratic equation has. 
+        # if root is negative then there are only imaginary solutions or no real solutions
+        # if the root is 0 then there is one solution
+        # otherwise there are two solutions
+        root = math.pow(qb, 2) - 4*qa*qc
+        
+        # If there are no roots then we need to scale the arc to fit the points
+        if root < 0:
+            logging.warning("Invalid arc: {}, {} {} {} {} {}".format(self.rx, self.ry, self.rotation, self.large_arc_flag, self.sweep_flag, self.end_pts[1]))
+            point = Point((pts[0].x + pts[1].x)/2,(pts[0].y + pts[1].y)/2)
+
+        # finish solving the quadratic equation and find the corresponding points on the intersection line
+        elif root == 0:
+            xroot = (-qb+math.sqrt(root))/(2*qa)
+            point = Point(xroot, xroot*m + b)
+        # Using the provided large_arc and sweep flags to choose the correct root
+        else:
+            xroots = [(-qb+math.sqrt(root))/(2*qa), (-qb-math.sqrt(root))/(2*qa)]
+            points = [Point(xroots[0], xroots[0]*m + b), Point(xroots[1], xroots[1]*m + b)]
+            # Calculate the angle of the begining point to the end point
+
+            # If counterclockwise the two angles are the angle is within 180 degrees of each other:
+            #   and no flags are set use the first center
+            #   and the sweep flag is set use the second
+            #   the large arc flag is set invert the previous selection
+
+            angles = []
+            for pt in pts:
+                pt = Point(pt.x-points[0].x, pt.y-points[0].y)
+                pt.rot(math.radians(-self.rotation))
+                pt = Point(pt.x/self.rx, pt.y/self.ry)
+                angles.append(math.atan2(pt.y,pt.x))
+            target = 0
+            if self.sweep_flag:
+                target = (angles[0] - angles[1]) > 0 or (angles[0] - angles[1]) < math.pi
+            else:
+                target = (angles[0] - angles[1]) < 0 or (angles[0] - angles[1]) > math.pi
+
+            point = points[target if not self.large_arc_flag else not target]
+
+        
+        # Swap the x and y results from when the intersection line is vertical because we solved for y instead of x
+        # Also remove any insignificant floating point errors
+        if y == 0:
+            point = Point(round(point.y, 10), round(point.x, 10))
+        else:
+            point = Point(round(point.x, 10), round(point.y, 10))
+        self.center = point
+
+        # Calculate start and end angle of the unrotated arc
+        self.angles = []
+        for pt in self.end_pts:
+            pt = Point(pt.x-self.center.x, pt.y-self.center.y)
+            pt.rot(math.radians(-self.rotation))
+            pt = Point(pt.x/self.rx, pt.y/self.ry)
+            self.angles.append(math.atan2(pt.y,pt.x))
+        if not self.sweep_flag and self.angles[0] < self.angles[1]:
+            self.angles[0] += 2*math.pi
+        elif self.sweep_flag and self.angles[1] < self.angles[0]:
+            self.angles[1] += 2*math.pi
+
+
+    def segments(self, precision=0):
+        if max(self.rx, self.ry) < precision:
+            return self.end_pts
+        return Ellipse.segments(self, precision)[0]
+    
+    def P(self, t):
+        '''Return a Point on the Arc for t in [0..1]'''
+        #TODO change point cords if rotaion
+        x = self.center.x + self.rx * math.cos(((self.angles[1] - self.angles[0]) * t) + self.angles[0])
+        y = self.center.y + self.ry * math.sin(((self.angles[1] - self.angles[0]) * t) + self.angles[0])
+        return Point(x,y)
+
+
 
 # A circle is a special type of ellipse where rx = ry = radius
 class Circle(Ellipse):
