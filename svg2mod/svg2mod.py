@@ -7,6 +7,7 @@ from pprint import pformat, pprint
 import re
 import svg2mod.svg as svg
 import sys
+import shlex
 
 
 #----------------------------------------------------------------------------
@@ -103,8 +104,11 @@ def main():
                 verbose = args.verbose_print,
             )
 
+    args = [os.path.basename(sys.argv[0])] + sys.argv[1:]
+    cmdline = ' '.join(shlex.quote(x) for x in args)
+
     # Export the footprint:
-    exported.write()
+    exported.write(cmdline)
 
 
 #----------------------------------------------------------------------------
@@ -790,17 +794,17 @@ class Svg2ModExport( object ):
 
     #------------------------------------------------------------------------
 
-    def write( self ):
+    def write( self, cmdline ):
 
         self._prune()
 
         # Must come after pruning:
-        translation = self._calculate_translation()
+        self._calculate_translation()
 
         print( "Writing module file: {}".format( self.file_name ) )
         self.output_file = open( self.file_name, 'w' )
 
-        self._write_library_intro()
+        self._write_library_intro(cmdline)
 
         self._write_modules()
 
@@ -886,7 +890,7 @@ class Svg2ModExportLegacy( Svg2ModExport ):
 
     #------------------------------------------------------------------------
 
-    def _write_library_intro( self ):
+    def _write_library_intro( self, cmdline ):
 
         modules_list = self._get_module_name( front = True )
         if self.include_reverse:
@@ -904,13 +908,13 @@ $INDEX
 {2}
 $EndINDEX
 #
-# {3}
+# Converted using: {3}
 #
 """.format(
     datetime.datetime.now().strftime( "%a %d %b %Y %I:%M:%S %p %Z" ),
     units,
     modules_list,
-    self.imported.file_name,
+    cmdline
 )
         )
 
@@ -1167,7 +1171,7 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
 
     #------------------------------------------------------------------------
 
-    def _write_library_intro( self ):
+    def _write_library_intro( self, cmdline ):
 
         # Write pre-index:
         self.output_file.writelines( self.pre_index )
@@ -1300,7 +1304,7 @@ class Svg2ModExportPretty( Svg2ModExport ):
 
     #------------------------------------------------------------------------
 
-    def _write_library_intro( self ):
+    def _write_library_intro( self, cmdline ):
 
         self.output_file.write( """(module {0} (layer F.Cu) (tedit {1:8X})
   (attr virtual)
@@ -1311,7 +1315,7 @@ class Svg2ModExportPretty( Svg2ModExport ):
     int( round( os.path.getctime( #1
         self.imported.file_name
     ) ) ),
-    "Imported from {}".format( self.imported.file_name ), #2
+    "Converted using: {}".format( cmdline ), #2
     "svg2mod", #3
 )
         )
@@ -1560,7 +1564,7 @@ def get_arguments():
         type = float,
         dest = 'precision',
         metavar = 'PRECISION',
-        help = "smoothness for approximating curves with line segments (float)",
+        help = "smoothness for approximating curves with line segments. Input is the approximate length for each line segment in SVG pixels (float)",
         default = 10.0,
     )
     parser.add_argument(
