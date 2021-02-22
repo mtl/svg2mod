@@ -300,7 +300,7 @@ class Group(Transformable):
         for elt in element:
             elt_class = svgClass.get(elt.tag, None)
             if elt_class is None:
-                logging.warning('No handler for element %s' % elt.tag)
+                logging.debug('No handler for element %s' % elt.tag)
                 continue
             # instanciate elt associated class (e.g. <path>: item = Path(elt)
             item = elt_class(elt)
@@ -509,11 +509,11 @@ class Path(Transformable):
                 if len(flags) > 1:  x = flags[1:]
                 else:               x = pathlst.pop()
                 y = pathlst.pop()
-                # TODO
+                end_pt = Point(x, y)
+                if not absolute: end_pt += current_pt
                 self.items.append(
-                Arc(current_pt, rx, ry, xrot, large_arc_flag, sweep_flag, Point(x, y)))
-                #Arc(current_pt, rx, ry, xrot, large_arc_flag, sweep_flag, Point(x, y))
-                current_pt = Point(x, y)
+                    Arc(current_pt, rx, ry, xrot, large_arc_flag, sweep_flag, end_pt))
+                current_pt = end_pt
 
             else:
                 pathlst.pop()
@@ -553,6 +553,7 @@ class Ellipse(Transformable):
     '''SVG <ellipse>'''
     # class Ellipse handles the <ellipse> tag
     tag = 'ellipse'
+    arc = False
 
     def __init__(self, elt=None):
         Transformable.__init__(self, elt)
@@ -562,6 +563,10 @@ class Ellipse(Transformable):
             self.rx = self.length(elt.get('rx'))
             self.ry = self.length(elt.get('ry'))
             self.style = elt.get('style')
+            if elt.get('d') is not None:
+                self.arc = True
+                self.path = Path(elt)
+                self.path_str = elt.get('d')
 
     def __repr__(self):
         return '<Ellipse ' + self.id + '>'
@@ -599,6 +604,9 @@ class Ellipse(Transformable):
         return Point(x,y)
 
     def segments(self, precision=0):
+        if self.arc:
+            segs = self.path.segments(precision)
+            return segs
         if max(self.rx, self.ry) < precision:
             return [[self.center]]
 
@@ -625,6 +633,7 @@ class Arc(Ellipse):
     tag = 'ellipse'
 
     def __init__(self, start_pt, rx, ry, xrot, large_arc_flag, sweep_flag, end_pt):
+        Ellipse.__init__(self, None)
         try:
             self.rx = float(rx)
             self.ry = float(ry)
@@ -634,10 +643,9 @@ class Arc(Ellipse):
         except:
             pass
         self.end_pts = [start_pt, end_pt]
+        self.angles = []
 
         self.calcuate_center()
-        Ellipse.__init__(self, None)
-        #logging.debug(type(self.center))
 
     def __repr__(self):
         return '<Arc ' + self.id + '>'
@@ -686,8 +694,19 @@ class Arc(Ellipse):
         
         # If there are no roots then we need to scale the arc to fit the points
         if root < 0:
-            logging.warning("Invalid arc: {}, {} {} {} {} {}".format(self.rx, self.ry, self.rotation, self.large_arc_flag, self.sweep_flag, self.end_pts[1]))
+            # Center point
             point = Point((pts[0].x + pts[1].x)/2,(pts[0].y + pts[1].y)/2)
+            # Angle between center and one of the end points adjusted to remove rotation from original data
+            ptAng = math.atan2(self.end_pts[0].y-point.y, self.end_pts[0].x-point.x) - angle.angle
+            # Adjust the angle to compensate for ellipse irregularity
+            ptAng = math.atan((self.rx/self.ry) * math.tan(ptAng))
+            # Calculate scaling factor between provided ellipse and actual end points
+            radius = math.sqrt(math.pow(self.rx * math.cos(ptAng),2) + math.pow(self.ry * math.sin(ptAng),2))
+            dist = math.sqrt( math.pow(self.end_pts[0].x-point.x, 2) + math.pow(self.end_pts[0].y-point.y, 2))
+            factor = dist/radius
+            self.rx *= factor
+            self.ry *= factor
+
 
         # finish solving the quadratic equation and find the corresponding points on the intersection line
         elif root == 0:
@@ -704,19 +723,21 @@ class Arc(Ellipse):
             #   and the sweep flag is set use the second
             #   the large arc flag is set invert the previous selection
 
+            # Don't save the angles because they are calculated from the first possible center.
+            # This may change so we'll just recalculate the angles later on
             angles = []
             for pt in pts:
                 pt = Point(pt.x-points[0].x, pt.y-points[0].y)
                 pt.rot(math.radians(-self.rotation))
                 pt = Point(pt.x/self.rx, pt.y/self.ry)
-                angles.append(math.atan2(pt.y,pt.x))
+                angles.append(math.atan2(pt.y,pt.x)%(math.pi*2))
             target = 0
             if self.sweep_flag:
-                target = (angles[0] - angles[1]) > 0 or (angles[0] - angles[1]) < math.pi
+                target = 0 if (angles[0] - angles[1]) < 0 or (angles[0] - angles[1]) > math.pi else 1
             else:
-                target = (angles[0] - angles[1]) < 0 or (angles[0] - angles[1]) > math.pi
+                target = 1 if (angles[0] - angles[1]) < 0 or (angles[0] - angles[1]) > math.pi else 0
 
-            point = points[target if not self.large_arc_flag else not target]
+            point = points[target if not self.large_arc_flag else target ^ 1 ]
 
         
         # Swap the x and y results from when the intersection line is vertical because we solved for y instead of x
@@ -728,12 +749,14 @@ class Arc(Ellipse):
         self.center = point
 
         # Calculate start and end angle of the unrotated arc
-        self.angles = []
-        for pt in self.end_pts:
-            pt = Point(pt.x-self.center.x, pt.y-self.center.y)
-            pt.rot(math.radians(-self.rotation))
-            pt = Point(pt.x/self.rx, pt.y/self.ry)
-            self.angles.append(math.atan2(pt.y,pt.x))
+        if len(self.angles) < 2:
+            self.angles = []
+            for pt in self.end_pts:
+                pt = Point(pt.x-self.center.x, pt.y-self.center.y)
+                pt = pt.rot(math.radians(-self.rotation))
+                pt = Point(pt.x/self.rx, pt.y/self.ry)
+                self.angles.append(math.atan2(pt.y,pt.x))
+
         if not self.sweep_flag and self.angles[0] < self.angles[1]:
             self.angles[0] += 2*math.pi
         elif self.sweep_flag and self.angles[1] < self.angles[0]:
