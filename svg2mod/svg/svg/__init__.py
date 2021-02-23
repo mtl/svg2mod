@@ -2,7 +2,7 @@
 
 from .svg import *
 
-def parse(filename, verbose=True):
-    f = svg.Svg(filename, verbose)
+def parse(filename):
+    f = svg.Svg(filename)
     return f
 

@@ -1,6 +1,7 @@
 # SVG parser in Python
 
 # Copyright (C) 2013 -- CJlano < cjlano @ free.fr >
+# Copyright (C) 2021 -- svg2mod developers < github.com / svg2mod >
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,14 +19,10 @@
 
 from __future__ import absolute_import
 import traceback
-import sys
-import os
-import copy
-import re
+import sys, os, copy, re
 import xml.etree.ElementTree as etree
-import itertools
-import operator
-import json
+import itertools, operator
+import json, logging
 from .geometry import *
 
 
@@ -51,10 +48,9 @@ unit_convert = {
 
 class Transformable:
     '''Abstract class for objects that can be geometrically drawn & transformed'''
-    def __init__(self, elt=None, verbose=True):
+    def __init__(self, elt=None):
         # a 'Transformable' is represented as a list of Transformable items
         self.items = []
-        self.verbose = verbose
         self.id = hex(id(self))
         # Unit transformation matrix on init
         self.matrix = Matrix()
@@ -96,8 +92,7 @@ class Transformable:
             op = op.strip()
             # Keep only numbers
             arg = [float(x) for x in re.findall(number_re, arg)]
-            if self.verbose:
-                print('transform: ' + op + ' '+ str(arg))
+            logging.debug('transform: ' + op + ' '+ str(arg))
 
             if op == 'matrix':
                 self.matrix *= Matrix(arg)
@@ -208,9 +203,9 @@ class Svg(Transformable):
     # class Svg handles the <svg> tag
     # tag = 'svg'
 
-    def __init__(self, filename=None, verbose=True):
+    def __init__(self, filename=None):
         self.viewport_scale = 1
-        Transformable.__init__(self, verbose=verbose)
+        Transformable.__init__(self)
         if filename:
             self.parse(filename)
 
@@ -222,7 +217,7 @@ class Svg(Transformable):
             raise TypeError('file %s does not seem to be a valid SVG file', filename)
 
         # Create a top Group to group all other items (useful for viewBox elt)
-        top_group = Group(verbose=self.verbose)
+        top_group = Group()
         self.items.append(top_group)
 
         # SVG dimension
@@ -240,8 +235,7 @@ class Svg(Transformable):
             if self.root.get('width') is None or self.root.get('height') is None:
                 width = float(viewBox[2])
                 height = float(viewBox[3])
-                if self.verbose:
-                    print("\033[91mUnable to find width of height properties. Falling back to viewBox.\033[0m", file=sys.stderr)
+                logging.warning("Unable to find width of height properties. Falling back to viewBox.")
 
             sx = width / float(viewBox[2])
             sy = height / float(viewBox[3])
@@ -251,8 +245,8 @@ class Svg(Transformable):
             top_group.matrix = Matrix([sx, 0, 0, sy, tx, ty])
         if ( self.root.get("width") is None or self.root.get("height") is None ) \
                 and self.root.get("viewBox") is None:
-            print("\033[91mFatal Error: Unable to find SVG dimensions. Exiting.\033[0m", file=sys.stderr)
-            exit()
+            logging.critical("Fatal Error: Unable to find SVG dimensions. Exiting.")
+            sys.exit(-1)
 
         # Parse XML elements hierarchically with groups <g>
         top_group.append(self.root)
@@ -275,8 +269,8 @@ class Group(Transformable):
     # class Group handles the <g> tag
     tag = 'g'
 
-    def __init__(self, elt=None, verbose=True):
-        Transformable.__init__(self, elt, verbose)
+    def __init__(self, elt=None):
+        Transformable.__init__(self, elt)
 
         self.name = ""
         self.hidden = False
@@ -302,11 +296,10 @@ class Group(Transformable):
         for elt in element:
             elt_class = svgClass.get(elt.tag, None)
             if elt_class is None:
-                if self.verbose:
-                    print('No handler for element %s' % elt.tag)
+                logging.debug('No handler for element %s' % elt.tag)
                 continue
             # instanciate elt associated class (e.g. <path>: item = Path(elt)
-            item = elt_class(elt, verbose=self.verbose)
+            item = elt_class(elt)
             # Apply group matrix to the newly created object
             # Actually, this is effectively done in Svg.__init__() through call to
             # self.transform(), so doing it here will result in the transformations
@@ -377,8 +370,8 @@ class Path(Transformable):
     # class Path handles the <path> tag
     tag = 'path'
 
-    def __init__(self, elt=None, verbose=True):
-        Transformable.__init__(self, elt, verbose)
+    def __init__(self, elt=None):
+        Transformable.__init__(self, elt)
         if elt is not None:
             self.style = elt.get('style')
             self.parse(elt.get('d'))
@@ -499,27 +492,24 @@ class Path(Transformable):
                 flags = pathlst.pop().strip()
                 large_arc_flag = flags[0]
                 if large_arc_flag not in '01':
-                    print('\033[91mArc parsing failure\033[0m', file=sys.error)
+                    logging.error("Arc parsing failure")
                     break
 
                 if len(flags) > 1:  flags = flags[1:].strip()
                 else:               flags = pathlst.pop().strip()
                 sweep_flag = flags[0]
                 if sweep_flag not in '01':
-                    print('\033[91mArc parsing failure\033[0m', file=sys.error)
+                    logging.error("Arc parsing failure")
                     break
 
                 if len(flags) > 1:  x = flags[1:]
                 else:               x = pathlst.pop()
                 y = pathlst.pop()
-                # TODO
-                if self.verbose:
-                    print('\033[91mUnsupported ARC: ' +
-                        ', '.join([rx, ry, xrot, large_arc_flag, sweep_flag, x, y]) + "\033[0m",
-                        file=sys.stderr
-                    )
-#                self.items.append(
-#                    Arc(rx, ry, xrot, large_arc_flag, sweep_flag, Point(x, y)))
+                end_pt = Point(x, y)
+                if not absolute: end_pt += current_pt
+                self.items.append(
+                    Arc(current_pt, rx, ry, xrot, large_arc_flag, sweep_flag, end_pt))
+                current_pt = end_pt
 
             else:
                 pathlst.pop()
@@ -559,21 +549,27 @@ class Ellipse(Transformable):
     '''SVG <ellipse>'''
     # class Ellipse handles the <ellipse> tag
     tag = 'ellipse'
+    arc = False
 
-    def __init__(self, elt=None, verbose=True):
-        Transformable.__init__(self, elt, verbose)
+    def __init__(self, elt=None):
+        Transformable.__init__(self, elt)
         if elt is not None:
             self.center = Point(self.xlength(elt.get('cx')),
                                 self.ylength(elt.get('cy')))
             self.rx = self.length(elt.get('rx'))
             self.ry = self.length(elt.get('ry'))
             self.style = elt.get('style')
+            if elt.get('d') is not None:
+                self.arc = True
+                self.path = Path(elt)
+                self.path_str = elt.get('d')
 
     def __repr__(self):
         return '<Ellipse ' + self.id + '>'
 
     def bbox(self):
         '''Bounding box'''
+        #TODO change bounding box dependent on rotation
         pmin = self.center - Point(self.rx, self.ry)
         pmax = self.center + Point(self.rx, self.ry)
         return (pmin, pmax)
@@ -598,18 +594,15 @@ class Ellipse(Transformable):
 
     def P(self, t):
         '''Return a Point on the Ellipse for t in [0..1]'''
+        #TODO change point cords if rotaion
         x = self.center.x + self.rx * math.cos(2 * math.pi * t)
         y = self.center.y + self.ry * math.sin(2 * math.pi * t)
         return Point(x,y)
 
     def segments(self, precision=0):
-        if self.verbose and self.rotation % 180 != 0:
-            print(
-                    "\033[91mUnsupported rotation for {} primitive\033[0m".format(
-                        self.__class__.__name__
-                    ),
-                    file=sys.stderr
-                )
+        if self.arc:
+            segs = self.path.segments(precision)
+            return segs
         if max(self.rx, self.ry) < precision:
             return [[self.center]]
 
@@ -623,11 +616,162 @@ class Ellipse(Transformable):
                 p.append((t, self.P(t)))
             p.sort(key=operator.itemgetter(0))
 
-        ret = [x for t,x in p]
+        ret = [x.rot(math.radians(self.rotation), x=self.center.x, y=self.center.y) for t,x in p]
         return [ret]
 
     def simplify(self, precision):
         return self
+
+# An arc is an ellipse with a begining and an end point instead of an entire circumference 
+class Arc(Ellipse):
+    '''SVG <ellipse>'''
+    # class Ellipse handles the <ellipse> tag
+    tag = 'ellipse'
+
+    def __init__(self, start_pt, rx, ry, xrot, large_arc_flag, sweep_flag, end_pt):
+        Ellipse.__init__(self, None)
+        try:
+            self.rx = float(rx)
+            self.ry = float(ry)
+            self.rotation = float(xrot)
+            self.large_arc_flag = large_arc_flag=='1'
+            self.sweep_flag = sweep_flag=='1'
+        except:
+            pass
+        self.end_pts = [start_pt, end_pt]
+        self.angles = []
+
+        self.calcuate_center()
+
+    def __repr__(self):
+        return '<Arc ' + self.id + '>'
+    
+    def calcuate_center(self):
+        angle = Angle(math.radians(self.rotation))
+        pts = self.end_pts
+
+        # set some variables that are used often to decrease size of final equations
+        cs2 = 2*angle.cos*angle.sin*(math.pow(self.ry, 2) - math.pow(self.rx, 2))
+        rs = (math.pow(self.ry*angle.sin, 2) + math.pow(self.rx*angle.cos, 2))
+        rc = (math.pow(self.ry*angle.cos, 2) + math.pow(self.rx*angle.sin, 2))
+        
+        
+        # Create a line that passes through both intersection points
+        y = -pts[0].x*(cs2) + pts[1].x*cs2 - 2*pts[0].y*rs + 2*pts[1].y*rs
+        # Round to prevent floating point errors
+        y = round(y, 10)
+        # A vertical line will break the program so we cannot calculate with these equations
+        if y != 0:
+            # Finish calculating the line
+            m = ( -2*pts[0].x*rc + 2*pts[1].x*rc - pts[0].y*cs2 + pts[1].y*cs2 ) / -y
+            b = ( math.pow(pts[0].x,2)*rc - math.pow(pts[1].x,2)*rc + pts[0].x*pts[0].y*cs2 - pts[1].x*pts[1].y*cs2 + math.pow(pts[0].y,2)*(rs) - math.pow(pts[1].y,2)*rs ) / -y
+        
+            # Now that we have a line we can setup a quadratic equation to solve for all intersection points
+            qa = rc + m*cs2 + math.pow(m,2)*rs
+            qb = -2*pts[0].x*rc + b*cs2 - pts[0].y*cs2 - m*pts[0].x*cs2 + 2*m*b*rs - 2*pts[0].y*m*rs
+            qc = math.pow(pts[0].x,2)*rc - b*pts[0].x*cs2 + pts[0].x*pts[0].y*cs2 + math.pow(b,2)*rs - 2*b*pts[0].y*rs + math.pow(pts[0].y,2)*rs - math.pow(self.rx*self.ry, 2)
+        
+        else:
+            # When the slope is vertical we need to calculate with x instead of y
+            x = (pts[0].x+pts[1].x)/2
+            m=0
+            b=x
+        
+            # The quadratic formula but solving for y instead of x and only when the slope is vertical
+            qa = rs
+            qb =  x*cs2 - pts[0].x*cs2 - 2*pts[0].y*rs
+            qc = math.pow(x,2)*rc - 2*x*pts[0].x*rc + math.pow(pts[0].x,2)*rc - x*pts[0].y*cs2 + pts[0].x*pts[0].y*cs2 + math.pow(pts[0].y,2)*rs - math.pow(self.rx*self.ry, 2)
+        
+        # This is the value to see how many real solutions the quadratic equation has. 
+        # if root is negative then there are only imaginary solutions or no real solutions
+        # if the root is 0 then there is one solution
+        # otherwise there are two solutions
+        root = math.pow(qb, 2) - 4*qa*qc
+        
+        # If there are no roots then we need to scale the arc to fit the points
+        if root < 0:
+            # Center point
+            point = Point((pts[0].x + pts[1].x)/2,(pts[0].y + pts[1].y)/2)
+            # Angle between center and one of the end points adjusted to remove rotation from original data
+            ptAng = math.atan2(self.end_pts[0].y-point.y, self.end_pts[0].x-point.x) - angle.angle
+            # Adjust the angle to compensate for ellipse irregularity
+            ptAng = math.atan((self.rx/self.ry) * math.tan(ptAng))
+            # Calculate scaling factor between provided ellipse and actual end points
+            radius = math.sqrt(math.pow(self.rx * math.cos(ptAng),2) + math.pow(self.ry * math.sin(ptAng),2))
+            dist = math.sqrt( math.pow(self.end_pts[0].x-point.x, 2) + math.pow(self.end_pts[0].y-point.y, 2))
+            factor = dist/radius
+            self.rx *= factor
+            self.ry *= factor
+
+
+        # finish solving the quadratic equation and find the corresponding points on the intersection line
+        elif root == 0:
+            xroot = (-qb+math.sqrt(root))/(2*qa)
+            point = Point(xroot, xroot*m + b)
+        # Using the provided large_arc and sweep flags to choose the correct root
+        else:
+            xroots = [(-qb+math.sqrt(root))/(2*qa), (-qb-math.sqrt(root))/(2*qa)]
+            points = [Point(xroots[0], xroots[0]*m + b), Point(xroots[1], xroots[1]*m + b)]
+            # Calculate the angle of the begining point to the end point
+
+            # If counterclockwise the two angles are the angle is within 180 degrees of each other:
+            #   and no flags are set use the first center
+            #   and the sweep flag is set use the second
+            #   the large arc flag is set invert the previous selection
+
+            # Don't save the angles because they are calculated from the first possible center.
+            # This may change so we'll just recalculate the angles later on
+            angles = []
+            for pt in pts:
+                pt = Point(pt.x-points[0].x, pt.y-points[0].y)
+                pt.rot(math.radians(-self.rotation))
+                pt = Point(pt.x/self.rx, pt.y/self.ry)
+                angles.append(math.atan2(pt.y,pt.x)%(math.pi*2))
+            target = 0
+            if self.sweep_flag:
+                target = 0 if (angles[0] - angles[1]) < 0 or (angles[0] - angles[1]) > math.pi else 1
+            else:
+                target = 1 if (angles[0] - angles[1]) < 0 or (angles[0] - angles[1]) > math.pi else 0
+
+            point = points[target if not self.large_arc_flag else target ^ 1 ]
+
+        
+        # Swap the x and y results from when the intersection line is vertical because we solved for y instead of x
+        # Also remove any insignificant floating point errors
+        if y == 0:
+            point = Point(round(point.y, 10), round(point.x, 10))
+        else:
+            point = Point(round(point.x, 10), round(point.y, 10))
+        self.center = point
+
+        # Calculate start and end angle of the unrotated arc
+        if len(self.angles) < 2:
+            self.angles = []
+            for pt in self.end_pts:
+                pt = Point(pt.x-self.center.x, pt.y-self.center.y)
+                pt = pt.rot(math.radians(-self.rotation))
+                pt = Point(pt.x/self.rx, pt.y/self.ry)
+                self.angles.append(math.atan2(pt.y,pt.x))
+
+        if not self.sweep_flag and self.angles[0] < self.angles[1]:
+            self.angles[0] += 2*math.pi
+        elif self.sweep_flag and self.angles[1] < self.angles[0]:
+            self.angles[1] += 2*math.pi
+
+
+    def segments(self, precision=0):
+        if max(self.rx, self.ry) < precision:
+            return self.end_pts
+        return Ellipse.segments(self, precision)[0]
+    
+    def P(self, t):
+        '''Return a Point on the Arc for t in [0..1]'''
+        #TODO change point cords if rotaion
+        x = self.center.x + self.rx * math.cos(((self.angles[1] - self.angles[0]) * t) + self.angles[0])
+        y = self.center.y + self.ry * math.sin(((self.angles[1] - self.angles[0]) * t) + self.angles[0])
+        return Point(x,y)
+
+
 
 # A circle is a special type of ellipse where rx = ry = radius
 class Circle(Ellipse):
@@ -635,11 +779,11 @@ class Circle(Ellipse):
     # class Circle handles the <circle> tag
     tag = 'circle'
 
-    def __init__(self, elt=None, verbose=True):
+    def __init__(self, elt=None):
         if elt is not None:
             elt.set('rx', elt.get('r'))
             elt.set('ry', elt.get('r'))
-        Ellipse.__init__(self, elt, verbose=verbose)
+        Ellipse.__init__(self, elt)
 
     def __repr__(self):
         return '<Circle ' + self.id + '>'
@@ -649,8 +793,8 @@ class Rect(Transformable):
     # class Rect handles the <rect> tag
     tag = 'rect'
 
-    def __init__(self, elt=None, verbose=True):
-        Transformable.__init__(self, elt, verbose)
+    def __init__(self, elt=None):
+        Transformable.__init__(self, elt)
         if elt is not None:
             self.P1 = Point(self.xlength(elt.get('x')),
                             self.ylength(elt.get('y')))
@@ -658,8 +802,8 @@ class Rect(Transformable):
             self.P2 = Point(self.P1.x + self.xlength(elt.get('width')),
                             self.P1.y + self.ylength(elt.get('height')))
             self.style = elt.get('style')
-            if self.verbose and (elt.get('rx') or elt.get('ry')):
-                print("\033[91mUnsupported corner radius on rect.\033[0m", file=sys.stderr)
+            if (elt.get('rx') or elt.get('ry')):
+                logging.warning("Unsupported corner radius on rect.")
 
     def __repr__(self):
         return '<Rect ' + self.id + '>'
@@ -711,8 +855,8 @@ class Line(Transformable):
     # class Line handles the <line> tag
     tag = 'line'
 
-    def __init__(self, elt=None, verbose=True):
-        Transformable.__init__(self, elt, verbose)
+    def __init__(self, elt=None):
+        Transformable.__init__(self, elt)
         if elt is not None:
             self.P1 = Point(self.xlength(elt.get('x1')),
                             self.ylength(elt.get('y1')))
