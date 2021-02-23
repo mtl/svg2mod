@@ -1,13 +1,10 @@
 
-import argparse
-import datetime
+import argparse, datetime
+import shlex, os, sys, re
 import logging
-import os, sys, re
 
 import svg2mod.svg as svg
 import svg2mod.coloredlogger as coloredlogger
-import sys
-import shlex
 
 
 #----------------------------------------------------------------------------

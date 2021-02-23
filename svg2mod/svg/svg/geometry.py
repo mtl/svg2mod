@@ -1,4 +1,5 @@
 # Copyright (C) 2013 -- CJlano < cjlano @ free.fr >
+# Copyright (C) 2021 -- svg2mod developers < github.com / svg2mod >
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,9 +20,7 @@ This module contains all the geometric classes and functions not directly
 related to SVG parsing. It can be reused outside the scope of SVG.
 '''
 
-import math
-import numbers
-import operator
+import math, numbers, operator
 
 class Point:
     def __init__(self, x=None, y=None):

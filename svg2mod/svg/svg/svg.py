@@ -1,6 +1,7 @@
 # SVG parser in Python
 
 # Copyright (C) 2013 -- CJlano < cjlano @ free.fr >
+# Copyright (C) 2021 -- svg2mod developers < github.com / svg2mod >
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,15 +19,10 @@
 
 from __future__ import absolute_import
 import traceback
-import sys
-import os
-import copy
-import re
+import sys, os, copy, re
 import xml.etree.ElementTree as etree
-import itertools
-import operator
-import json
-import logging
+import itertools, operator
+import json, logging
 from .geometry import *
 
 
