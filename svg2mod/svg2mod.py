@@ -1,12 +1,10 @@
-#!/usr/bin/env python3
 
-import argparse
-import datetime
-import os
-from pprint import pformat, pprint
-import re
+import argparse, datetime
+import shlex, os, sys, re
+import logging
+
 import svg2mod.svg as svg
-import sys
+import svg2mod.coloredlogger as coloredlogger
 
 
 #----------------------------------------------------------------------------
@@ -19,10 +17,32 @@ def main():
     pretty = args.format == 'pretty'
     use_mm = args.units == 'mm'
 
+
+
+    # Setup root logger to use terminal colored outputs as well as stdout and stderr
+    coloredlogger.split_logger(logging.root)
+
+    if args.verbose_print:
+        logging.root.setLevel(logging.INFO)
+    elif args.debug_print:
+        logging.root.setLevel(logging.DEBUG)
+    else:
+        logging.root.setLevel(logging.ERROR)
+
+    # Add a second logger that will bypass the log level and output anyway
+    # It is a good practice to send only messages level INFO via this logger
+    logging.getLogger("unfiltered").setLevel(logging.INFO)
+
+    # This can be used sparingly as follows:
+    '''
+    logging.getLogger("unfiltered").info("Message Here")
+    '''
+
+
     if pretty:
 
         if not use_mm:
-            print( "\033[91mError: decimil units only allowed with legacy output type\033[0m", file=sys.stderr )
+            logging.critical("Error: decimil units only allowed with legacy output type")
             sys.exit( -1 )
 
         #if args.include_reverse:
@@ -37,7 +57,6 @@ def main():
         args.module_name,
         args.module_value,
         args.ignore_hidden_layers,
-        args.verbose_print,
     )
 
     # Pick an output file name if none was provided:
@@ -65,7 +84,6 @@ def main():
             args.precision,
             dpi = args.dpi,
             pads = args.convert_to_pads,
-            verbose = args.verbose_print,
         )
 
     else:
@@ -82,7 +100,6 @@ def main():
                     args.scale_factor,
                     args.precision,
                     args.dpi,
-                    verbose = args.verbose_print,
                 )
 
             except Exception as e:
@@ -100,11 +117,13 @@ def main():
                 args.precision,
                 use_mm = use_mm,
                 dpi = args.dpi,
-                verbose = args.verbose_print,
             )
 
+    args = [os.path.basename(sys.argv[0])] + sys.argv[1:]
+    cmdline = ' '.join(shlex.quote(x) for x in args)
+
     # Export the footprint:
-    exported.write()
+    exported.write(cmdline)
 
 
 #----------------------------------------------------------------------------
@@ -226,18 +245,12 @@ class PolygonSegment( object ):
 
     #------------------------------------------------------------------------
 
-    def __init__( self, points, verbose=True ):
+    def __init__( self, points):
 
         self.points = points
-        self.verbose = verbose
 
         if len( points ) < 3:
-            print(
-                "\033[91mWarning:"
-                " Path segment has only {} points (not a polygon?)\033[0m".format(
-                    len( points )
-                ), file=sys.stderr
-            )
+            logging.warning("Warning: Path segment has only {} points (not a polygon?)".format(len( points )))
 
 
     #------------------------------------------------------------------------
@@ -280,17 +293,13 @@ class PolygonSegment( object ):
                     ):break
 
                 else:
-                    if self.verbose:
-                        print( "      Found insertion point: {}, {}".format( cp, hp ) )
+                    logging.debug( "  Found insertion point: {}, {}".format( cp, hp ) )
 
                     # No other holes intersected, so this insertion point
                     # is acceptable:
                     return ( cp, hole.points_starting_on_index( hp ) )
 
-        print(
-            "\033[91mCould not insert segment without overlapping other segments\033[0m",
-            file=sys.stderr
-        )
+        logging.error("Could not insert segment without overlapping other segments")
 
 
     #------------------------------------------------------------------------
@@ -323,8 +332,7 @@ class PolygonSegment( object ):
         if len( segments ) < 1:
             return self.points
 
-        if self.verbose:
-            print( "    Inlining {} segments...".format( len( segments ) ) )
+        logging.debug( "  Inlining {} segments...".format( len( segments ) ) )
 
         all_segments = segments[ : ] + [ self ]
         insertions = []
@@ -460,25 +468,23 @@ class Svg2ModImport( object ):
                 continue
 
             if item.hidden :
-                if self.verbose:
-                    print("Ignoring hidden SVG layer: {}".format( item.name ) )
+                logging.warning("Ignoring hidden SVG layer: {}".format( item.name ) )
             elif item.name is not "":
                 self.svg.items.append( item )
 
             if(item.items):
                 self._prune_hidden( item.items )
 
-    def __init__( self, file_name, module_name, module_value, ignore_hidden_layers, verbose_print ):
+    def __init__( self, file_name, module_name, module_value, ignore_hidden_layers ):
 
         self.file_name = file_name
         self.module_name = module_name
         self.module_value = module_value
-        self.verbose = verbose_print
 
-        print( "Parsing SVG..." )
-        self.svg = svg.parse( file_name, verbose_print )
-        if verbose_print: 
-            print("Document scaling: {} units per pixel".format(self.svg.viewport_scale))
+        logging.getLogger("unfiltered").info( "Parsing SVG..." )
+
+        self.svg = svg.parse( file_name)
+        logging.info("Document scaling: {} units per pixel".format(self.svg.viewport_scale))
         if( ignore_hidden_layers ):
             self._prune_hidden()
 
@@ -488,8 +494,6 @@ class Svg2ModImport( object ):
 #----------------------------------------------------------------------------
 
 class Svg2ModExport( object ):
-
-    verbose = True
 
     #------------------------------------------------------------------------
 
@@ -567,7 +571,6 @@ class Svg2ModExport( object ):
         use_mm = True,
         dpi = DEFAULT_DPI,
         pads = False,
-        verbose = True
     ):
         if use_mm:
             # 25.4 mm/in;
@@ -585,7 +588,6 @@ class Svg2ModExport( object ):
         self.use_mm = use_mm
         self.dpi = dpi
         self.convert_pads = pads
-        self.verbose = verbose
 
     #------------------------------------------------------------------------
 
@@ -631,7 +633,7 @@ class Svg2ModExport( object ):
             for name in self.layers.keys():
                 #if re.search( name, item.name, re.I ):
                 if name == item.name and item.name is not "":
-                    print( "Found SVG layer: {}".format( item.name ) )
+                    logging.getLogger("unfiltered").info( "Found SVG layer: {}".format( item.name ) )
 
                     self.imported.svg.items.append( item )
                     self.layers[ name ] = item
@@ -657,7 +659,7 @@ class Svg2ModExport( object ):
                 ):
 
                 segments = [
-                    PolygonSegment( segment, verbose=self.verbose )
+                    PolygonSegment( segment )
                     for segment in item.segments(
                         precision = self.precision
                     )
@@ -675,23 +677,17 @@ class Svg2ModExport( object ):
                     points = segments[ 0 ].points
 
                 if len ( segments ) != 0:
-                    if self.verbose:
-                        print( "    Writing polygon with {} points".format(
-                            len( points ) )
-                        )
 
+                    logging.info( "  Writing polygon with {} points".format(len( points ) ))
+                    
                     self._write_polygon(
                         points, layer, fill, stroke, stroke_width
                     )
-                elif self.verbose:
-                    print( "\033[91mSkipping {} with 0 points\033[0m".format(
-                        item.__class__.__name__
-                    ), file=sys.stderr)
+                else:
+                    logging.info( "Skipping {} with 0 points".format(item.__class__.__name__))
 
             else:
-                print( "\033[91mUnsupported SVG element: {}\033[0m".format(
-                    item.__class__.__name__
-                ), file=sys.stderr)
+                logging.warning( "Unsupported SVG element: {}".format(item.__class__.__name__))
 
 
     #------------------------------------------------------------------------
@@ -787,17 +783,17 @@ class Svg2ModExport( object ):
 
     #------------------------------------------------------------------------
 
-    def write( self ):
+    def write( self, cmdline ):
 
         self._prune()
 
         # Must come after pruning:
-        translation = self._calculate_translation()
+        self._calculate_translation()
 
-        print( "Writing module file: {}".format( self.file_name ) )
+        logging.getLogger("unfiltered").info( "Writing module file: {}".format( self.file_name ) )
         self.output_file = open( self.file_name, 'w' )
 
-        self._write_library_intro()
+        self._write_library_intro(cmdline)
 
         self._write_modules()
 
@@ -842,7 +838,6 @@ class Svg2ModExportLegacy( Svg2ModExport ):
         precision = 20.0,
         use_mm = True,
         dpi = DEFAULT_DPI,
-        verbose = True,
     ):
         super( Svg2ModExportLegacy, self ).__init__(
             svg2mod_import,
@@ -853,7 +848,6 @@ class Svg2ModExportLegacy( Svg2ModExport ):
             use_mm,
             dpi,
             pads = False,
-            verbose = verbose
         )
 
         self.include_reverse = True
@@ -883,7 +877,7 @@ class Svg2ModExportLegacy( Svg2ModExport ):
 
     #------------------------------------------------------------------------
 
-    def _write_library_intro( self ):
+    def _write_library_intro( self, cmdline ):
 
         modules_list = self._get_module_name( front = True )
         if self.include_reverse:
@@ -901,13 +895,13 @@ $INDEX
 {2}
 $EndINDEX
 #
-# {3}
+# Converted using: {3}
 #
 """.format(
     datetime.datetime.now().strftime( "%a %d %b %Y %I:%M:%S %p %Z" ),
     units,
     modules_list,
-    self.imported.file_name,
+    cmdline
 )
         )
 
@@ -1037,7 +1031,6 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
         precision = 20.0,
         dpi = DEFAULT_DPI,
         include_reverse = True,
-        verbose = True
     ):
         self.file_name = file_name
         use_mm = self._parse_output_file()
@@ -1050,7 +1043,6 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
             precision,
             use_mm,
             dpi,
-            verbose = verbose,
         )
 
 
@@ -1058,8 +1050,7 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
 
     def _parse_output_file( self ):
 
-        if self.verbose:
-            print( "Parsing module file: {}".format( self.file_name ) )
+        logging.info( "Parsing module file: {}".format( self.file_name ) )
         module_file = open( self.file_name, 'r' )
         lines = module_file.readlines()
         module_file.close()
@@ -1139,8 +1130,7 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
         m = re.match( r'\$MODULE[\s]+([^\s]+)[\s]*', lines[ index ] )
         module_name = m.group( 1 )
 
-        if self.verbose:
-            print( "  Reading module {}".format( module_name ) )
+        logging.info( "  Reading module {}".format( module_name ) )
 
         index += 1
         module_lines = []
@@ -1164,7 +1154,7 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
 
     #------------------------------------------------------------------------
 
-    def _write_library_intro( self ):
+    def _write_library_intro( self, cmdline ):
 
         # Write pre-index:
         self.output_file.writelines( self.pre_index )
@@ -1297,7 +1287,7 @@ class Svg2ModExportPretty( Svg2ModExport ):
 
     #------------------------------------------------------------------------
 
-    def _write_library_intro( self ):
+    def _write_library_intro( self, cmdline ):
 
         self.output_file.write( """(module {0} (layer F.Cu) (tedit {1:8X})
   (attr virtual)
@@ -1308,7 +1298,7 @@ class Svg2ModExportPretty( Svg2ModExport ):
     int( round( os.path.getctime( #1
         self.imported.file_name
     ) ) ),
-    "Imported from {}".format( self.imported.file_name ), #2
+    "Converted using: {}".format( cmdline ), #2
     "svg2mod", #3
 )
         )
@@ -1526,6 +1516,15 @@ def get_arguments():
     )
 
     parser.add_argument(
+        '--debug',
+        dest = 'debug_print',
+        action = 'store_const',
+        const = True,
+        help = "Print debug level messages",
+        default = False,
+    )
+
+    parser.add_argument(
         '-x', '--exclude-hidden',
         dest = 'ignore_hidden_layers',
         action = 'store_const',
@@ -1557,7 +1556,7 @@ def get_arguments():
         type = float,
         dest = 'precision',
         metavar = 'PRECISION',
-        help = "smoothness for approximating curves with line segments (float)",
+        help = "smoothness for approximating curves with line segments. Input is the approximate length for each line segment in SVG pixels (float)",
         default = 10.0,
     )
     parser.add_argument(

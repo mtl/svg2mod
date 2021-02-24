@@ -1,4 +1,5 @@
 # Copyright (C) 2013 -- CJlano < cjlano @ free.fr >
+# Copyright (C) 2021 -- svg2mod developers < github.com / svg2mod >
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,9 +20,7 @@ This module contains all the geometric classes and functions not directly
 related to SVG parsing. It can be reused outside the scope of SVG.
 '''
 
-import math
-import numbers
-import operator
+import math, numbers, operator
 
 class Point:
     def __init__(self, x=None, y=None):
@@ -104,7 +103,7 @@ class Point:
         return '(' + format(self.x,'.3f') + ',' + format( self.y,'.3f') + ')'
 
     def __str__(self):
-        return self.__repr__();
+        return self.__repr__()
 
     def coord(self):
         '''Return the point tuple (x,y)'''
@@ -114,14 +113,17 @@ class Point:
         '''Vector length, Pythagoras theorem'''
         return math.sqrt(self.x ** 2 + self.y ** 2)
 
-    def rot(self, angle):
+    def rot(self, angle, x=0, y=0):
         '''Rotate vector [Origin,self] '''
         if not isinstance(angle, Angle):
             try: angle = Angle(angle)
             except: return NotImplemented
-        x = self.x * angle.cos - self.y * angle.sin
-        y = self.x * angle.sin + self.y * angle.cos
-        return Point(x,y)
+        if angle.angle % (2 * math.pi) == 0:
+            return Point(self.x,self.y)
+
+        new_x = ((self.x-x) * angle.cos) - ((self.y-y) * angle.sin) + x
+        new_y = ((self.x-x) * angle.sin) + ((self.y-y) * angle.cos) + y
+        return Point(new_x,new_y)
 
 
 class Angle:
