@@ -204,16 +204,6 @@ class Segment:
         self.start = matrix * self.start
         self.end = matrix * self.end
 
-    def scale(self, ratio):
-        self.start *= ratio
-        self.end *= ratio
-    def translate(self, offset):
-        self.start += offset
-        self.end += offset
-    def rotate(self, angle):
-        self.start = self.start.rot(angle)
-        self.end = self.end.rot(angle)
-
 class Bezier:
     '''Bezier curve class
        A Bezier curve is defined by its control points
@@ -299,13 +289,6 @@ class Bezier:
     def transform(self, matrix):
         self.pts = [matrix * x for x in self.pts]
 
-    def scale(self, ratio):
-        self.pts = [x * ratio for x in self.pts]
-    def translate(self, offset):
-        self.pts = [x + offset for x in self.pts]
-    def rotate(self, angle):
-        self.pts = [x.rot(angle) for x in self.pts]
-
 class MoveTo:
     def __init__(self, dest):
         self.dest = dest
@@ -315,13 +298,6 @@ class MoveTo:
 
     def transform(self, matrix):
         self.dest = matrix * self.dest
-
-    def scale(self, ratio):
-        self.dest *= ratio
-    def translate(self, offset):
-        self.dest += offset
-    def rotate(self, angle):
-        self.dest = self.dest.rot(angle)
 
 
 def simplify_segment(segment, epsilon):

@@ -538,8 +538,10 @@ class Svg2ModExport( object ):
                 elif name == "stroke-width":
                     stroke_width = float( "".join(i for i in value if not i.isalpha()) )
 
-                    # units per pixel converted to mm
-                    scale = self.imported.svg.viewport_scale * float(self.dpi) / 25.4
+                    # units per pixel converted to output units
+                    # TODO: Include all transformations instead of just
+                    # the top-level viewport_scale
+                    scale = self.imported.svg.viewport_scale / self.scale_factor
 
                     # remove unessesary presion to reduce floating point errors
                     stroke_width = round(stroke_width/scale, 6)
@@ -552,7 +554,7 @@ class Svg2ModExport( object ):
             stroke_width = 0.0
         elif stroke_width is None:
             # Give a default stroke width?
-            stroke_width = self._convert_decimil_to_mm( 1 )
+            stroke_width = self._convert_decimil_to_mm( 1 ) if self.use_mm else 1
 
         return fill, stroke, stroke_width
 
@@ -675,13 +677,9 @@ class Svg2ModExport( object ):
                     points = segments[ 0 ].points
 
                 if len ( segments ) != 0:
-                    if not self.use_mm:
-                        stroke_width = self._convert_mm_to_decimil(
-                            stroke_width
-                        )
 
                     logging.info( "  Writing polygon with {} points".format(len( points ) ))
-
+                    
                     self._write_polygon(
                         points, layer, fill, stroke, stroke_width
                     )

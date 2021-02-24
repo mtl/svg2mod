@@ -18,7 +18,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 from __future__ import absolute_import
-import traceback
+import traceback, math
 import sys, os, copy, re
 import xml.etree.ElementTree as etree
 import itertools, operator
@@ -182,21 +182,6 @@ class Transformable:
                 flat[i:i+1] = flat[i].items
             i += 1
         return flat
-
-    def scale(self, ratio):
-        for x in self.items:
-            x.scale(ratio)
-        return self
-
-    def translate(self, offset):
-        for x in self.items:
-            x.translate(offset)
-        return self
-
-    def rotate(self, angle):
-        for x in self.items:
-            x.rotate(angle)
-        return self
 
 class Svg(Transformable):
     '''SVG class: use parse to parse a file'''
@@ -578,19 +563,10 @@ class Ellipse(Transformable):
         if matrix is None:
             matrix = self.matrix
         else:
-            matrix = self.matrix * matrix
+            matrix *= self.matrix
         self.center = matrix * self.center
         self.rx = matrix.xlength(self.rx)
         self.ry = matrix.ylength(self.ry)
-
-    def scale(self, ratio):
-        self.center *= ratio
-        self.rx *= ratio
-        self.ry *= ratio
-    def translate(self, offset):
-        self.center += offset
-    def rotate(self, angle):
-        self.center = self.center.rot(angle)
 
     def P(self, t):
         '''Return a Point on the Ellipse for t in [0..1]'''
@@ -821,7 +797,7 @@ class Rect(Transformable):
         if matrix is None:
             matrix = self.matrix
         else:
-            matrix = self.matrix*matrix
+            matrix *= self.matrix
         self.P1 = matrix * self.P1
         self.P2 = matrix * self.P2
 
@@ -877,6 +853,10 @@ class Line(Transformable):
         return (Point(xmin,ymin), Point(xmax,ymax))
 
     def transform(self, matrix):
+        if matrix is None:
+            matrix = self.matrix
+        else:
+            matrix *= self.matrix
         self.P1 = matrix * self.P1
         self.P2 = matrix * self.P2
         self.segment = Segment(self.P1, self.P2)
