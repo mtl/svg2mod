@@ -898,7 +898,7 @@ class Svg2ModExport( object ):
 
     #------------------------------------------------------------------------
 
-    def write( self, cmdline ):
+    def write( self, cmdline="" ):
 
         self._prune()
 
