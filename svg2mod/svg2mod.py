@@ -326,7 +326,6 @@ class PolygonSegment( object ):
 
 
                         else:
-                            # logging.critical( "  Found insertion point: {}, {}".format( bridge.p, hole.points.index(hole_point) ) )
                             logging.info( "[{}, {}]".format( bridge.p, hole_point ) )
 
                             # No other holes intersected, so this insertion point
@@ -339,58 +338,6 @@ class PolygonSegment( object ):
                                 hole_point = bridge.q
                             second_bridge = None
                             trying_new_point = True
-
-
-                
-        ## Try the next point on the container:
-        #for cp in range( len( self.points ) ):
-        #    container_point = self.points[ cp ]
-
-        #    # Try the next point on the hole:
-        #    for hp in range( len( hole.points ) - 1 ):
-        #        hole_point = hole.points[ hp ]
-
-        #        bridge = LineSegment( container_point, hole_point )
-
-        #        # Check if bridge passes over other bridges that will be created
-        #        bad_point = False
-        #        for index, insertion, hi in other_insertions:
-        #            insert = LineSegment( self.points[index], insertion[0])
-        #            if bridge.intersects(insert):
-        #                bad_point = True
-        #        if bad_point:
-        #            continue
-
-        #        # Check for intersection with each other hole:
-        #        for index, other_hole, hole_object in other_insertions:
-
-        #            # If the other hole intersects, don't bother checking
-        #            # remaining holes:
-        #            if hole_object.intersects(
-        #                bridge,
-        #                check_connects = (
-        #                    other_hole == hole or other_hole == self
-        #                )
-        #            ):break
-
-        #        # Check for intersection with each other hole:
-        #        for other_hole in holes:
-
-        #            # If the other hole intersects, don't bother checking
-        #            # remaining holes:
-        #            if other_hole.intersects(
-        #                bridge,
-        #                check_connects = (
-        #                    other_hole == hole or other_hole == self
-        #                )
-        #            ):break
-
-        #        else:
-        #            logging.debug( "  Found insertion point: {}, {}".format( cp, hp ) )
-
-        #            # No other holes intersected, so this insertion point
-        #            # is acceptable:
-        #            return ( cp, hole.points_starting_on_index( hp ), holes[holes.index(hole)] )
 
         logging.error("Could not insert segment without overlapping other segments")
         exit(1)
@@ -440,17 +387,11 @@ class PolygonSegment( object ):
             if insertion is not None:
                 insertions.append( insertion )
 
-        # insertions.sort( key = lambda i: i[ 0 ] )
-
-        # inlined = [ self.points[ 0 ] ]
-        # ip = 1
         points = self.points[ : ]
 
         for insertion in insertions:
 
             ip = points.index(insertion[0])
-            # while inlined[-1] != insertion[ 0 ]:
-            #     inlined.append( points.pop(0) )
 
             if (
                 points[ ip ].x == insertion[ 1 ][ 0 ].x and
@@ -459,15 +400,6 @@ class PolygonSegment( object ):
                 points = points[:ip+1] + insertion[ 1 ][ 1 : -1 ] + points[ip:]
             else:
                 points = points[:ip+1] + insertion[ 1 ] + points[ip:]
-
-            # inlined.append( svg.Point(
-                # points[ ip - 1 ].x,
-                # points[ ip - 1 ].y,
-            # ) )
-# 
-        # while ip < len( points ):
-        #     inlined.append( points[ ip ] )
-        #     ip += 1
 
         return points
 
