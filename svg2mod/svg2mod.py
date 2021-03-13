@@ -1,7 +1,7 @@
 
 import argparse, datetime
 import shlex, os, sys, re
-import logging
+import logging, io, time
 
 import svg2mod.svg as svg
 import svg2mod.coloredlogger as coloredlogger
@@ -236,6 +236,13 @@ class LineSegment( object ):
         self.p = self.q
         self.q = q
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, LineSegment) and
+            other.p.x == self.p.x and other.p.y == self.p.y and
+            other.q.x == self.q.x and other.q.y == self.q.y
+        )
+
 
     #------------------------------------------------------------------------
 
@@ -257,49 +264,136 @@ class PolygonSegment( object ):
 
     # KiCad will not "pick up the pen" when moving between a polygon outline
     # and holes within it, so we search for a pair of points connecting the
-    # outline (self) to the hole such that the connecting segment will not
-    # cross the visible inner space within any hole.
+    # outline (self) or other previously inserted points to the hole such
+    # that the connecting segment will not cross the visible inner space
+    # within any hole.
     def _find_insertion_point( self, hole, holes, other_insertions ):
 
-        # Try the next point on the container:
-        for cp in range( len( self.points ) ):
-            container_point = self.points[ cp ]
+        connected = list( zip(*other_insertions) )
+        if len(connected) > 0:
+            connected = [self] + list( connected[2] )
+        else:
+            connected = [self]
+        
+        for hp in range( len(hole.points) - 1 ):
+            for poly in connected:
+                for pp in range( len(poly.points ) - 1 ):
+                    hole_point = hole.points[hp]
+                    bridge = LineSegment( poly.points[pp], hole_point)
+                    trying_new_point = True
+                    second_bridge = None
+                    connected_poly = poly
+                    while trying_new_point:
+                        trying_new_point = False
 
-            # Try the next point on the hole:
-            for hp in range( len( hole.points ) - 1 ):
-                hole_point = hole.points[ hp ]
+                        # Check if bridge passes over other bridges that will be created
+                        bad_point = False
+                        for ip, insertion, con_poly in other_insertions:
+                            insert = LineSegment( ip, insertion[0])
+                            if bridge.intersects(insert):
+                                bad_point = True
+                                break
 
-                bridge = LineSegment( container_point, hole_point )
+                        if bad_point:
+                            continue
 
-                # Check if bridge passes over other bridges that will be created
-                bad_point = False
-                for index, insertion in other_insertions:
-                    insert = LineSegment( self.points[index], insertion[0])
-                    if bridge.intersects(insert):
-                        bad_point = True
-                if bad_point:
-                    continue
+                        # Check for intersection with each other hole:
+                        for other_hole in holes:
 
-                # Check for intersection with each other hole:
-                for other_hole in holes:
+                            # If the other hole intersects, don't bother checking
+                            # remaining holes:
+                            res = other_hole.intersects(
+                                bridge,
+                                check_connects = (
+                                    other_hole == hole or connected.count( other_hole ) > 0
+                                ),
+                                get_points = (
+                                    other_hole == hole or connected.count( other_hole ) > 0
+                                )
+                            )
+                            if isinstance(res, bool) and res: break
+                            elif isinstance(res, tuple) and len(res) != 0:
+                                trying_new_point = True
+                                connected_poly = other_hole
+                                if other_hole == hole:
+                                    hole_point = res[0]
+                                    bridge = LineSegment( bridge.p, res[0] )
+                                    second_bridge = LineSegment( bridge.p, res[1] )
+                                else:
+                                    bridge = LineSegment( res[0], hole_point )
+                                    second_bridge = LineSegment( res[1], hole_point )
+                                break
 
-                    # If the other hole intersects, don't bother checking
-                    # remaining holes:
-                    if other_hole.intersects(
-                        bridge,
-                        check_connects = (
-                            other_hole == hole or other_hole == self
-                        )
-                    ):break
 
-                else:
-                    logging.debug( "  Found insertion point: {}, {}".format( cp, hp ) )
+                        else:
+                            # logging.critical( "  Found insertion point: {}, {}".format( bridge.p, hole.points.index(hole_point) ) )
+                            logging.info( "[{}, {}]".format( bridge.p, hole_point ) )
 
-                    # No other holes intersected, so this insertion point
-                    # is acceptable:
-                    return ( cp, hole.points_starting_on_index( hp ) )
+                            # No other holes intersected, so this insertion point
+                            # is acceptable:
+                            return ( bridge.p, hole.points_starting_on_index( hole.points.index(hole_point) ), hole )
+
+                        if second_bridge and not trying_new_point:
+                            bridge = second_bridge
+                            if hole_point != bridge.q:
+                                hole_point = bridge.q
+                            second_bridge = None
+                            trying_new_point = True
+
+
+                
+        ## Try the next point on the container:
+        #for cp in range( len( self.points ) ):
+        #    container_point = self.points[ cp ]
+
+        #    # Try the next point on the hole:
+        #    for hp in range( len( hole.points ) - 1 ):
+        #        hole_point = hole.points[ hp ]
+
+        #        bridge = LineSegment( container_point, hole_point )
+
+        #        # Check if bridge passes over other bridges that will be created
+        #        bad_point = False
+        #        for index, insertion, hi in other_insertions:
+        #            insert = LineSegment( self.points[index], insertion[0])
+        #            if bridge.intersects(insert):
+        #                bad_point = True
+        #        if bad_point:
+        #            continue
+
+        #        # Check for intersection with each other hole:
+        #        for index, other_hole, hole_object in other_insertions:
+
+        #            # If the other hole intersects, don't bother checking
+        #            # remaining holes:
+        #            if hole_object.intersects(
+        #                bridge,
+        #                check_connects = (
+        #                    other_hole == hole or other_hole == self
+        #                )
+        #            ):break
+
+        #        # Check for intersection with each other hole:
+        #        for other_hole in holes:
+
+        #            # If the other hole intersects, don't bother checking
+        #            # remaining holes:
+        #            if other_hole.intersects(
+        #                bridge,
+        #                check_connects = (
+        #                    other_hole == hole or other_hole == self
+        #                )
+        #            ):break
+
+        #        else:
+        #            logging.debug( "  Found insertion point: {}, {}".format( cp, hp ) )
+
+        #            # No other holes intersected, so this insertion point
+        #            # is acceptable:
+        #            return ( cp, hole.points_starting_on_index( hp ), holes[holes.index(hole)] )
 
         logging.error("Could not insert segment without overlapping other segments")
+        exit(1)
 
 
     #------------------------------------------------------------------------
@@ -346,43 +440,45 @@ class PolygonSegment( object ):
             if insertion is not None:
                 insertions.append( insertion )
 
-        insertions.sort( key = lambda i: i[ 0 ] )
+        # insertions.sort( key = lambda i: i[ 0 ] )
 
-        inlined = [ self.points[ 0 ] ]
-        ip = 1
-        points = self.points
+        # inlined = [ self.points[ 0 ] ]
+        # ip = 1
+        points = self.points[ : ]
 
         for insertion in insertions:
 
-            while ip <= insertion[ 0 ]:
-                inlined.append( points[ ip ] )
-                ip += 1
+            ip = points.index(insertion[0])
+            # while inlined[-1] != insertion[ 0 ]:
+            #     inlined.append( points.pop(0) )
 
             if (
-                inlined[ -1 ].x == insertion[ 1 ][ 0 ].x and
-                inlined[ -1 ].y == insertion[ 1 ][ 0 ].y
+                points[ ip ].x == insertion[ 1 ][ 0 ].x and
+                points[ ip ].y == insertion[ 1 ][ 0 ].y
             ):
-                inlined += insertion[ 1 ][ 1 : -1 ]
+                points = points[:ip+1] + insertion[ 1 ][ 1 : -1 ] + points[ip:]
             else:
-                inlined += insertion[ 1 ]
+                points = points[:ip+1] + insertion[ 1 ] + points[ip:]
 
-            inlined.append( svg.Point(
-                points[ ip - 1 ].x,
-                points[ ip - 1 ].y,
-            ) )
+            # inlined.append( svg.Point(
+                # points[ ip - 1 ].x,
+                # points[ ip - 1 ].y,
+            # ) )
+# 
+        # while ip < len( points ):
+        #     inlined.append( points[ ip ] )
+        #     ip += 1
 
-        while ip < len( points ):
-            inlined.append( points[ ip ] )
-            ip += 1
-
-        return inlined
+        return points
 
 
     #------------------------------------------------------------------------
 
-    def intersects( self, line_segment, check_connects ):
+    def intersects( self, line_segment, check_connects , count_intersections=False, get_points=False):
 
         hole_segment = LineSegment()
+
+        intersections = 0
 
         # Check each segment of other hole for intersection:
         for point in self.points:
@@ -400,8 +496,19 @@ class PolygonSegment( object ):
 
                     #print( "Intersection detected." )
 
-                    return True
+                    if count_intersections:
+                        # If line_segment passes through a point this prevents a second false positive
+                        hole_segment.q = None
+                        intersections += 1
+                    elif get_points:
+                        return hole_segment.p, hole_segment.q
+                    else:
+                        return True
 
+        if count_intersections:
+            return intersections
+        if get_points:
+            return ()
         return False
 
 
@@ -449,6 +556,40 @@ class PolygonSegment( object ):
 
     #------------------------------------------------------------------------
 
+    # Calculate bounding box of self
+    def bounding_box(self):
+        self.bbox =  [
+            svg.Point(min(self.points, key=lambda v: v.x).x, min(self.points, key=lambda v: v.y).y),
+            svg.Point(max(self.points, key=lambda v: v.x).x, max(self.points, key=lambda v: v.y).y),
+        ]
+
+    #------------------------------------------------------------------------
+
+    # Checks if the supplied polygon either contains or insets our bounding box
+    def are_distinct(self, polygon):
+        distinct = True
+
+        smaller = min([self, polygon], key=lambda p: svg.Segment(p.bbox[0], p.bbox[1]).length())
+        larger = self if smaller == polygon else polygon
+
+        if (
+            larger.bbox[0].x < smaller.bbox[0].x and 
+            larger.bbox[0].y < smaller.bbox[0].y and
+            larger.bbox[1].x > smaller.bbox[1].x and
+            larger.bbox[1].y > smaller.bbox[1].y 
+        ):
+            distinct = False
+
+        # Check number of horizontal intersections. If the number is odd then it the smaller polygon 
+        # is contained. If the number is even then the polygon is outside of the larger polygon
+        if not distinct:
+            tline = LineSegment(smaller.points[0], svg.Point(larger.bbox[1].x, smaller.points[0].y))
+            distinct = bool((larger.intersects(tline, False, True) + 1)%2)
+
+        return distinct
+    #------------------------------------------------------------------------
+
+
 #----------------------------------------------------------------------------
 
 class Svg2ModImport( object ):
@@ -475,16 +616,17 @@ class Svg2ModImport( object ):
             if(item.items):
                 self._prune_hidden( item.items )
 
-    def __init__( self, file_name, module_name, module_value, ignore_hidden_layers ):
+    def __init__( self, file_name=None, module_name="svg2mod", module_value="G***", ignore_hidden_layers=False ):
 
         self.file_name = file_name
         self.module_name = module_name
         self.module_value = module_value
 
-        logging.getLogger("unfiltered").info( "Parsing SVG..." )
+        if file_name:
+            logging.getLogger("unfiltered").info( "Parsing SVG..." )
 
-        self.svg = svg.parse( file_name)
-        logging.info("Document scaling: {} units per pixel".format(self.svg.viewport_scale))
+            self.svg = svg.parse( file_name)
+            logging.info("Document scaling: {} units per pixel".format(self.svg.viewport_scale))
         if( ignore_hidden_layers ):
             self._prune_hidden()
 
@@ -521,7 +663,7 @@ class Svg2ModExport( object ):
 
             for property in filter(None, item.style.split( ";" )):
 
-                nv = property.split( ":" );
+                nv = property.split( ":" )
                 name = nv[ 0 ].strip()
                 value = nv[ 1 ].strip()
 
@@ -563,9 +705,9 @@ class Svg2ModExport( object ):
 
     def __init__(
         self,
-        svg2mod_import,
-        file_name,
-        center,
+        svg2mod_import = Svg2ModImport(),
+        file_name = None,
+        center = False,
         scale_factor = 1.0,
         precision = 20.0,
         use_mm = True,
@@ -590,6 +732,19 @@ class Svg2ModExport( object ):
         self.convert_pads = pads
 
     #------------------------------------------------------------------------
+
+    def add_svg_element(self, elem, layer="F.SilkS"):
+        grp = svg.Group()
+        grp.name = layer
+        grp.items.append(elem)
+        try:
+            self.imported.svg.items.append(grp)
+        except AttributeError:
+            self.imported.svg = svg.Svg()
+            self.imported.svg.items.append(grp)
+
+    #------------------------------------------------------------------------
+
 
     def _calculate_translation( self ):
 
@@ -655,7 +810,8 @@ class Svg2ModExport( object ):
             elif (
                     isinstance( item, svg.Path ) or
                     isinstance( item, svg.Ellipse) or
-                    isinstance( item, svg.Rect )
+                    isinstance( item, svg.Rect ) or
+                    isinstance( item, svg.Text )
                 ):
 
                 segments = [
@@ -666,19 +822,46 @@ class Svg2ModExport( object ):
                 ]
 
                 fill, stroke, stroke_width = self._get_fill_stroke( item )
+                fill = (False if layer == "Edge.Cuts" else fill)
 
                 for segment in segments:
                     segment.process( self, flip, fill )
 
                 if len( segments ) > 1:
-                    points = segments[ 0 ].inline( segments[ 1 : ] )
+                    [poly.bounding_box() for poly in segments]
+                    segments.sort(key=lambda v: svg.Segment(v.bbox[0], v.bbox[1]).length(), reverse=True)
+
+                    while len(segments) > 0:
+                        inlinable = [segments[0]]
+                        for seg in segments[1:]:
+                            if not inlinable[0].are_distinct(seg):
+                                append = True
+                                if len(inlinable) > 1:
+                                    for hole in inlinable[1:]:
+                                        if not hole.are_distinct(seg):
+                                            append = False
+                                            break
+                                if append: inlinable.append(seg)
+                        for poly in inlinable:
+                            segments.pop(segments.index(poly))
+                        if len(inlinable) > 1:
+                            points = inlinable[ 0 ].inline( inlinable[ 1 : ] )
+                        elif len(inlinable) > 0:
+                            points = inlinable[ 0 ].points
+
+                        logging.info( "  Writing {} with {} points".format(item.__class__.__name__, len( points ) ))
+                    
+                        self._write_polygon(
+                            points, layer, fill, stroke, stroke_width
+                        )
+                    continue
 
                 elif len( segments ) > 0:
                     points = segments[ 0 ].points
 
-                if len ( segments ) != 0:
+                if len ( segments ) == 1:
 
-                    logging.info( "  Writing polygon with {} points".format(len( points ) ))
+                    logging.info( "  Writing {} with {} points".format(item.__class__.__name__, len( points ) ))
                     
                     self._write_polygon(
                         points, layer, fill, stroke, stroke_width
@@ -790,12 +973,18 @@ class Svg2ModExport( object ):
         # Must come after pruning:
         self._calculate_translation()
 
-        logging.getLogger("unfiltered").info( "Writing module file: {}".format( self.file_name ) )
-        self.output_file = open( self.file_name, 'w' )
+        if self.file_name:
+            logging.getLogger("unfiltered").info( "Writing module file: {}".format( self.file_name ) )
+            self.output_file = open( self.file_name, 'w' )
+        else:
+            self.output_file = io.StringIO()
 
         self._write_library_intro(cmdline)
 
         self._write_modules()
+
+        if self.file_name is None:
+            self.raw_file_data = self.output_file.getvalue()
 
         self.output_file.close()
         self.output_file = None
@@ -901,7 +1090,7 @@ $EndINDEX
     datetime.datetime.now().strftime( "%a %d %b %Y %I:%M:%S %p %Z" ),
     units,
     modules_list,
-    cmdline
+    cmdline.replace("\\","\\\\")
 )
         )
 
@@ -1295,10 +1484,10 @@ class Svg2ModExportPretty( Svg2ModExport ):
   (tags {3})
 """.format(
     self.imported.module_name, #0
-    int( round( os.path.getctime( #1
-        self.imported.file_name
-    ) ) ),
-    "Converted using: {}".format( cmdline ), #2
+    int( round( #1
+        os.path.getctime( self.imported.file_name ) if self.imported.file_name else time.time()
+     ) ),
+    "Converted using: {}".format( cmdline.replace("\\", "\\\\") ), #2
     "svg2mod", #3
 )
         )

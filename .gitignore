@@ -6,3 +6,4 @@ dist
 svg2mod.egg-info
 *.kicad_mod
 *.mod
+__pycache__

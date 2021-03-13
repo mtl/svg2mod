@@ -18,12 +18,20 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 from __future__ import absolute_import
+import xml.etree.ElementTree as etree
 import traceback, math
 import sys, os, copy, re
-import xml.etree.ElementTree as etree
 import itertools, operator
+import platform
 import json, logging
 from .geometry import *
+from fontTools.ttLib import ttFont
+from fontTools.pens.recordingPen import RecordingPen
+from fontTools.pens.basePen import decomposeQuadraticSegment
+from fontTools.misc import loggingTools
+
+# Make fontTools more quiet
+loggingTools.configLogger(level=logging.INFO)
 
 
 svg_ns = '{http://www.w3.org/2000/svg}'
@@ -54,6 +62,9 @@ class Transformable:
         self.id = hex(id(self))
         # Unit transformation matrix on init
         self.matrix = Matrix()
+        self.scalex = 1
+        self.scaley = 1
+        self.style = ""
         self.rotation = 0
         self.viewport = Point(800, 600) # default viewport is 800x600
         if elt is not None:
@@ -107,6 +118,8 @@ class Transformable:
                 sx = arg[0]
                 if len(arg) == 1: sy = sx
                 else: sy = arg[1]
+                self.scalex *= sx
+                self.scaley *= sy
                 self.matrix *= Matrix([sx, 0, 0, sy, 0, 0])
 
             if op == 'rotate':
@@ -588,9 +601,9 @@ class Ellipse(Transformable):
         while d > precision:
             for (t1,p1),(t2,p2) in zip(p[:-1],p[1:]):
                 t = t1 + (t2 - t1)/2.
-                d = Segment(p1, p2).pdistance(self.P(t))
                 p.append((t, self.P(t)))
             p.sort(key=operator.itemgetter(0))
+            d = Segment(p[0][1],p[1][1]).length()
 
         ret = [x.rot(math.radians(self.rotation), x=self.center.x, y=self.center.y) for t,x in p]
         return [ret]
@@ -624,9 +637,9 @@ class Arc(Ellipse):
     
     def calcuate_center(self):
         angle = Angle(math.radians(self.rotation))
-        pts = self.end_pts
 
         # set some variables that are used often to decrease size of final equations
+        pts = self.end_pts
         cs2 = 2*angle.cos*angle.sin*(math.pow(self.ry, 2) - math.pow(self.rx, 2))
         rs = (math.pow(self.ry*angle.sin, 2) + math.pow(self.rx*angle.cos, 2))
         rc = (math.pow(self.ry*angle.cos, 2) + math.pow(self.rx*angle.sin, 2))
@@ -866,6 +879,292 @@ class Line(Transformable):
 
     def simplify(self, precision):
         return self.segments(precision)
+
+class Text(Transformable):
+    '''SVG <text>'''
+    # class Text handles the <text> tag
+    tag = 'text'
+
+    default_font = None
+    _system_fonts = {}
+    _os_font_paths = {
+        "Darwin": ["/Library/Fonts", "~/Library/Fonts"],
+        "Linux": ["/usr/share/fonts","/usr/local/share/fonts","~/.local/share/fonts"],
+        "Windows": ["C:/Windows/Fonts", "~/AppData/Local/Microsoft/Windows/Fonts"]
+    }
+
+    def __init__(self, elt=None, parent=None):
+        Transformable.__init__(self, elt)
+
+        self.bbox_points = [Point(0,0), Point(0,0)]
+
+        if elt is not None:
+            self.style = elt.get('style')
+            self.parse(elt, parent)
+            if parent is None:
+                self.convert_to_path(auto_transform=False)
+        else:
+            self.origin = Point(0,0)
+            self.font_family = Text.default_font
+            self.size = 12
+            self.bold = "normal"
+            self.italic = "normal"
+            if self.font_family:
+                self.font_file = self.find_font_file()
+            self.text = []
+    
+    def set_font(self, font=None, bold=None, italic=None, size=None):
+        font = font if font else self.font_family
+        bold = bold if bold else (self.bold.lower() != "normal")
+        italic = italic if italic else (self.italic.lower() != "normal")
+        size = size if size else self.size
+        if type(size) is str:
+            size = float(size.strip("px"))
+
+        self.font_family = font
+        self.size = size
+        self.bold = "normal" if not bold else "bold"
+        self.italic = "normal" if not italic else "italic"
+        self.font_file = self.find_font_file()
+
+
+    def add_text(self, text, origin=Point(0,0)):
+        if origin == self.origin:
+            self.text.append((text, self))
+        else:
+            new_line = Text()
+            new_line.set_font(
+                font=self.font_family,
+                bold=(self.bold != "normal"),
+                italic=(self.italic != "normal"),
+                size=self.size
+            )
+
+            new_line.origin = origin
+            self.text.append((text, new_line))
+
+
+    def parse(self, elt, parent):
+        x = elt.get('x')
+        y = elt.get('y')
+
+        # It seems that any values in style that override these values take precidence
+        self.font_configs = {
+            "font-family": elt.get('font-family'),
+            "font-size": elt.get('font-size'),
+            "font-weight": elt.get('font-weight'),
+            "font-style": elt.get('font-style'),
+        }
+        if self.style is not None:
+            for style in self.style.split(";"):
+                nv = style.split(":")
+                name = nv[ 0 ].strip()
+                value = nv[ 1 ].strip()
+                if list(self.font_configs.keys()).count(name) != 0:
+                    self.font_configs[name] = value
+        
+        if type(self.font_configs["font-size"]) is str:
+            float(self.font_configs["font-size"].strip("px"))
+
+        for config in self.font_configs:
+            if self.font_configs[config] is None and parent is not None:
+                self.font_configs[config] = parent.font_configs[config]
+
+        self.font_family = self.font_configs["font-family"]
+        self.size = self.font_configs["font-size"]
+        self.bold = self.font_configs["font-weight"]
+        self.italic = self.font_configs["font-style"]
+
+        self.font_file = self.find_font_file()
+
+        if parent is not None:
+            x = parent.origin.x if x is None else float(x)
+            y = parent.origin.y if y is None else float(y)
+        x = 0 if x is None else float(x)
+        y = 0 if y is None else float(y)
+        self.origin = Point(x,y)
+
+        self.text = [] if elt.text is None else [(elt.text, self)]
+        for child in list(elt):
+            Text(child, self)
+        if parent is not None:
+            parent.text.extend(self.text)
+            if elt.tail is not None:
+                parent.text.append((elt.tail, parent))
+
+        del(self.font_configs)
+
+
+    def find_font_file(self):
+        if self.font_family is None:
+            if Text.default_font is None:
+                logging.error("Unable to find font because no font was specified.")
+                return None
+            self.font_family = Text.default_font
+        fonts = [fnt.strip().strip("'") for fnt in self.font_family.split(",")]
+        if Text.default_font is not None: fonts.append(Text.default_font)
+
+        font_files = None
+        target_font = None
+        for fnt in fonts:
+            if Text.load_system_fonts().get(fnt) is not None:
+                target_font = fnt
+                font_files = Text.load_system_fonts().get(fnt)
+                break
+        if font_files is None:
+            # We are unable to find a font and since there is no default font stop building font data
+            logging.error("Unable to find font(s) \"{}\"{}".format(
+                self.font_family,
+                " and no default font specified" if Text.default_font is None else f" or default font \"{Text.default_font}\""
+            ))
+            self.paths = []
+            return
+        
+        bold = self.bold is not None and self.bold.lower() != "normal"
+        italic = self.italic is not None and self.italic.lower() != "normal"
+
+        reg = ["Regular", "Book"]
+        bol = ["Bold", "Demibold"]
+        ita = ["Italic", "Oblique"]
+
+        search = reg
+        if bold and not italic:
+            search = bol
+        elif italic and not bold:
+            search = ita
+        elif italic and bold:
+            search = [f"{b} {i}" if n == 0 else f"{i} {b}" for b in bol for i in ita for n in range(2)]
+        tar_font = list(filter(None, [font_files.get(style) for style in search]))
+        if len(tar_font) == 0 and len(font_files.keys()) == 1:
+            tar_font = [font_files[list(font_files.keys())[0]]]
+            logging.warning("Font \"{}\" does not natively support style \"{}\" using \"{}\" instead".format(
+                target_font, search[0], list(font_files.keys())[0]))
+        elif len(tar_font) == 0 and italic and bold:
+            orig_search = search[0]
+            search = []
+            search.extend(ita)
+            search.extend(bol)
+            search.extend(reg)
+            search.extend(list(font_files.keys()))
+            for style in search:
+                if font_files.get(style) is not None:
+                    tar_font = [font_files[style]]
+                    logging.warning("Font \"{}\" does not natively support style \"{}\" using \"{}\" instead".format(
+                        target_font, orig_search, style))
+                    break
+        return tar_font[0]
+
+
+    def convert_to_path(self, auto_transform=True):
+        self.paths = []
+        prev_origin = self.text[0][1].origin
+
+        offset = Point(prev_origin.x, prev_origin.y)
+        for index, (text, attrib) in enumerate(self.text):
+
+            if attrib.font_file is None or attrib.font_family is None:
+                continue
+            size = attrib.size
+            ttf = ttFont.TTFont(attrib.font_file)
+            offset.y = attrib.origin.y + ttf["head"].unitsPerEm
+            scale = size/offset.y
+
+            if prev_origin != attrib.origin:
+                prev_origin = attrib.origin
+                offset.x = attrib.origin.x
+
+            path = []
+            for char in text:
+
+                pathbuf = ""
+                pen = RecordingPen()
+                try: glf = ttf.getGlyphSet()[ttf.getBestCmap()[ord(char)]]
+                except KeyError:
+                    logging.warning(f"Unsuported character in <text> element \"{char}\"")
+                    #txt = txt.replace(char, "")
+                    continue
+
+                glf.draw(pen)
+                for command in pen.value:
+                    pts = list(command[1])
+                    for ptInd in range(len(pts)):
+                        pts[ptInd] = (pts[ptInd][0], offset.y - pts[ptInd][1])
+                    if command[0] == "moveTo" or command[0] == "lineTo":
+                        pathbuf += command[0][0].upper() + f" {pts[0][0]},{pts[0][1]} "
+                    elif command[0] == "qCurveTo":
+                        pts = decomposeQuadraticSegment(command[1])
+                        for pt in pts:
+                            pathbuf += "Q {},{} {},{} ".format(
+                                pt[0][0], offset.y - pt[0][1],
+                                pt[1][0], offset.y - pt[1][1]
+                            )
+                    elif command[0] == "closePath":
+                        pathbuf += "Z"
+
+                path.append(Path())
+                path[-1].parse(pathbuf)
+                # Apply the scaling then the translation
+                translate = Matrix([1,0,0,1,offset.x,-size+attrib.origin.y]) * Matrix([scale,0,0,scale,0,0])
+                # This queues the translations until .transform() is called
+                path[-1].matrix =  translate * path[-1].matrix
+                #path[-1].getTransformations({"transform":"translate({},{}) scale({})".format(
+                #    offset.x, -size+attrib.origin.y, scale)})
+                offset.x += (scale*glf.width)
+
+            self.paths.append(path)
+        if auto_transform:
+            self.transform()
+    
+    def bbox(self):
+        if self.paths is None or len(self.paths) == 0:
+            return [Point(0,0),Point(0,0)]
+
+        bboxes = [path.bbox() for paths in self.paths for path in paths]
+
+        return [
+            Point(min(bboxes, key=lambda v: v[0].x)[0].x, min(bboxes, key=lambda v: v[0].y)[0].y),
+            Point(max(bboxes, key=lambda v: v[1].x)[1].x, max(bboxes, key=lambda v: v[1].y)[1].y),
+        ]
+    
+    def transform(self, matrix=None):
+        if matrix is None:
+            matrix = self.matrix
+        else:
+            matrix *= self.matrix
+        self.origin = matrix * self.origin
+        for paths in self.paths:
+            for path in paths:
+                path.transform(matrix)
+        
+    def segments(self, precision=0):
+        segs = []
+        for paths in self.paths:
+            for path in paths:
+                segs.extend(path.segments(precision))
+        return segs
+
+    @staticmethod
+    def load_system_fonts():
+        if len(Text._system_fonts.keys()) < 1:
+            fonts_files = []
+            logging.info("Found <text> element. Loading system fonts.")
+            for path in Text._os_font_paths[platform.system()]:
+                try: fonts_files.extend([os.path.join(dp, f) for dp, dn, fn in os.walk(os.path.expanduser(path)) for f in fn])
+                except: pass
+
+            for ffile in fonts_files:
+                try:
+                    font = ttFont.TTFont(ffile)
+                    name = font["name"].getName(1,1,0).toStr()
+                    style = font["name"].getName(2,1,0).toStr()
+                    if Text._system_fonts.get(name) is None:
+                        Text._system_fonts[name] = {style:ffile}
+                    elif Text._system_fonts[name].get(style) is None:
+                        Text._system_fonts[name][style] = ffile
+                except:pass
+            logging.debug(f"  Found {len(Text._system_fonts.keys())} fonts in system")
+        return Text._system_fonts
+
 
 # overwrite JSONEncoder for svg classes which have defined a .json() method
 class JSONEncoder(json.JSONEncoder):
