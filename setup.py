@@ -18,10 +18,12 @@ tag = ""
 
 try:
     tag = os.popen("git describe --tag")._stream.read().strip()
+    tag = tag.replace("-", ".dev", 1).replace("-", "+")
 except:
     tag = "development"
 
 requirements = [
+    "fonttools"
 ]
 
 test_requirements = [
