@@ -1,7 +1,13 @@
 
-import argparse, datetime
-import shlex, os, sys, re
-import logging, io, time
+import argparse
+import datetime
+import shlex
+import os
+import sys
+import re
+import io
+import time
+import logging
 
 import svg2mod.svg as svg
 import svg2mod.coloredlogger as coloredlogger
@@ -274,7 +280,7 @@ class PolygonSegment( object ):
             connected = [self] + list( connected[2] )
         else:
             connected = [self]
-        
+
         for hp in range( len(hole.points) - 1 ):
             for poly in connected:
                 for pp in range( len(poly.points ) - 1 ):
@@ -505,14 +511,14 @@ class PolygonSegment( object ):
         larger = self if smaller == polygon else polygon
 
         if (
-            larger.bbox[0].x < smaller.bbox[0].x and 
+            larger.bbox[0].x < smaller.bbox[0].x and
             larger.bbox[0].y < smaller.bbox[0].y and
             larger.bbox[1].x > smaller.bbox[1].x and
-            larger.bbox[1].y > smaller.bbox[1].y 
+            larger.bbox[1].y > smaller.bbox[1].y
         ):
             distinct = False
 
-        # Check number of horizontal intersections. If the number is odd then it the smaller polygon 
+        # Check number of horizontal intersections. If the number is odd then it the smaller polygon
         # is contained. If the number is even then the polygon is outside of the larger polygon
         if not distinct:
             tline = LineSegment(smaller.points[0], svg.Point(larger.bbox[1].x, smaller.points[0].y))
@@ -617,7 +623,7 @@ class Svg2ModExport( object ):
                     # the top-level viewport_scale
                     scale = self.imported.svg.viewport_scale / self.scale_factor
 
-                    # remove unnecessary precession to reduce floating point errors
+                    # remove unnecessary precision to reduce floating point errors
                     stroke_width = round(stroke_width/scale, 6)
 
                 elif name == "stroke-opacity":
@@ -782,7 +788,7 @@ class Svg2ModExport( object ):
                             points = inlinable[ 0 ].points
 
                         logging.info( "  Writing {} with {} points".format(item.__class__.__name__, len( points ) ))
-                    
+
                         self._write_polygon(
                             points, layer, fill, stroke, stroke_width
                         )
@@ -794,7 +800,7 @@ class Svg2ModExport( object ):
                 if len ( segments ) == 1:
 
                     logging.info( "  Writing {} with {} points".format(item.__class__.__name__, len( points ) ))
-                    
+
                     self._write_polygon(
                         points, layer, fill, stroke, stroke_width
                     )
@@ -1118,9 +1124,9 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
 
     def _write_polygon_point( self, point ):
 
-            self.output_file.write(
-                "Dl {} {}\n".format( point.x, point.y )
-            )
+        self.output_file.write(
+            "Dl {} {}\n".format( point.x, point.y )
+        )
 
 
     #------------------------------------------------------------------------

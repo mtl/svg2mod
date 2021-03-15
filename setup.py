@@ -20,7 +20,7 @@ try:
     tag = subprocess.check_output(["git","describe","--tag"], stderr=subprocess.STDOUT)
     tag = tag.stdout.decode('utf-8')
     tag = tag.replace("-", ".dev", 1).replace("-", "+")
-except (FileNotFoundError, subprocess.CalledProcessError) as e:
+except:
     tag = "0.dev0"
 
 requirements = [
@@ -28,7 +28,7 @@ requirements = [
 ]
 
 test_requirements = [
-    # TODO: put package test requirements here
+	"pytest", "pylint", "pyenchant"
 ]
 
 setup(

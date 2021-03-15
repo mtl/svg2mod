@@ -1,7 +1,7 @@
 # SVG parser in Python
 
 # Copyright (C) 2013 -- CJlano < cjlano @ free.fr >
-# Copyright (C) 2021 -- svg2mod developers < github.com / svg2mod >
+# Copyright (C) 2021 -- svg2mod developers < GitHub.com / svg2mod >
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -77,7 +77,7 @@ class Transformable:
         self.viewport = Point(800, 600) # default viewport is 800x600
         if elt is not None:
             self.id = elt.get('id', self.id)
-            # Parse transform attibute to update self.matrix
+            # Parse transform attribute to update self.matrix
             self.getTransformations(elt)
 
     def bbox(self):
@@ -100,8 +100,8 @@ class Transformable:
         svg_transforms = [
                 'matrix', 'translate', 'scale', 'rotate', 'skewX', 'skewY']
 
-        # match any SVG transformation with its parameter (until final parenthese)
-        # [^)]*    == anything but a closing parenthese
+        # match any SVG transformation with its parameter (until final parenthesis)
+        # [^)]*    == anything but a closing parenthesis
         # '|'.join == OR-list of SVG transformations
         transforms = re.findall(
                 '|'.join([x + '[^)]*\)' for x in svg_transforms]), t)
@@ -237,7 +237,7 @@ class Svg(Transformable):
         if self.root.get('viewBox') is not None:
             viewBox = re.findall(number_re, self.root.get('viewBox'))
 
-            # If the document somehow doesn't have dimentions get if from viewBox
+            # If the document somehow doesn't have dimensions get if from viewBox
             if self.root.get('width') is None or self.root.get('height') is None:
                 width = float(viewBox[2])
                 height = float(viewBox[3])
@@ -304,7 +304,7 @@ class Group(Transformable):
             if elt_class is None:
                 logging.debug('No handler for element %s' % elt.tag)
                 continue
-            # instanciate elt associated class (e.g. <path>: item = Path(elt)
+            # instantiate elt associated class (e.g. <path>: item = Path(elt)
             item = elt_class(elt)
             # Apply group matrix to the newly created object
             # Actually, this is effectively done in Svg.__init__() through call to
@@ -333,8 +333,10 @@ class Matrix:
      (0, 0, 1))
     see http://www.w3.org/TR/SVG/coords.html#EstablishingANewUserSpace '''
 
-    def __init__(self, vect=[1, 0, 0, 1, 0, 0]):
+    def __init__(self, vect=None):
         # Unit transformation vect by default
+        if vect is None:
+            vect = [1, 0, 0, 1, 0, 0]
         if len(vect) != 6:
             raise ValueError("Bad vect size %d" % len(vect))
         self.vect = list(vect)
@@ -591,7 +593,7 @@ class Ellipse(Transformable):
 
     def P(self, t):
         '''Return a Point on the Ellipse for t in [0..1]'''
-        #TODO change point cords if rotaion
+        #TODO change point cords if rotation is set
         x = self.center.x + self.rx * math.cos(2 * math.pi * t)
         y = self.center.y + self.ry * math.sin(2 * math.pi * t)
         return Point(x,y)
@@ -619,7 +621,7 @@ class Ellipse(Transformable):
     def simplify(self, precision):
         return self
 
-# An arc is an ellipse with a beginning and an end point instead of an entire circumference 
+# An arc is an ellipse with a beginning and an end point instead of an entire circumference
 class Arc(Ellipse):
     '''SVG <ellipse>'''
     # class Ellipse handles the <ellipse> tag
@@ -642,7 +644,7 @@ class Arc(Ellipse):
 
     def __repr__(self):
         return '<Arc ' + self.id + '>'
-    
+
     def calcuate_center(self):
         angle = Angle(math.radians(self.rotation))
 
@@ -651,8 +653,8 @@ class Arc(Ellipse):
         cs2 = 2*angle.cos*angle.sin*(math.pow(self.ry, 2) - math.pow(self.rx, 2))
         rs = (math.pow(self.ry*angle.sin, 2) + math.pow(self.rx*angle.cos, 2))
         rc = (math.pow(self.ry*angle.cos, 2) + math.pow(self.rx*angle.sin, 2))
-        
-        
+
+
         # Create a line that passes through both intersection points
         y = -pts[0].x*(cs2) + pts[1].x*cs2 - 2*pts[0].y*rs + 2*pts[1].y*rs
         # Round to prevent floating point errors
@@ -662,29 +664,29 @@ class Arc(Ellipse):
             # Finish calculating the line
             m = ( -2*pts[0].x*rc + 2*pts[1].x*rc - pts[0].y*cs2 + pts[1].y*cs2 ) / -y
             b = ( math.pow(pts[0].x,2)*rc - math.pow(pts[1].x,2)*rc + pts[0].x*pts[0].y*cs2 - pts[1].x*pts[1].y*cs2 + math.pow(pts[0].y,2)*(rs) - math.pow(pts[1].y,2)*rs ) / -y
-        
+
             # Now that we have a line we can setup a quadratic equation to solve for all intersection points
             qa = rc + m*cs2 + math.pow(m,2)*rs
             qb = -2*pts[0].x*rc + b*cs2 - pts[0].y*cs2 - m*pts[0].x*cs2 + 2*m*b*rs - 2*pts[0].y*m*rs
             qc = math.pow(pts[0].x,2)*rc - b*pts[0].x*cs2 + pts[0].x*pts[0].y*cs2 + math.pow(b,2)*rs - 2*b*pts[0].y*rs + math.pow(pts[0].y,2)*rs - math.pow(self.rx*self.ry, 2)
-        
+
         else:
             # When the slope is vertical we need to calculate with x instead of y
             x = (pts[0].x+pts[1].x)/2
             m=0
             b=x
-        
+
             # The quadratic formula but solving for y instead of x and only when the slope is vertical
             qa = rs
             qb =  x*cs2 - pts[0].x*cs2 - 2*pts[0].y*rs
             qc = math.pow(x,2)*rc - 2*x*pts[0].x*rc + math.pow(pts[0].x,2)*rc - x*pts[0].y*cs2 + pts[0].x*pts[0].y*cs2 + math.pow(pts[0].y,2)*rs - math.pow(self.rx*self.ry, 2)
-        
-        # This is the value to see how many real solutions the quadratic equation has. 
+
+        # This is the value to see how many real solutions the quadratic equation has.
         # if root is negative then there are only imaginary solutions or no real solutions
         # if the root is 0 then there is one solution
         # otherwise there are two solutions
         root = math.pow(qb, 2) - 4*qa*qc
-        
+
         # If there are no roots then we need to scale the arc to fit the points
         if root < 0:
             # Center point
@@ -732,7 +734,7 @@ class Arc(Ellipse):
 
             point = points[target if not self.large_arc_flag else target ^ 1 ]
 
-        
+
         # Swap the x and y results from when the intersection line is vertical because we solved for y instead of x
         # Also remove any insignificant floating point errors
         if y == 0:
@@ -760,7 +762,7 @@ class Arc(Ellipse):
         if max(self.rx, self.ry) < precision:
             return self.end_pts
         return Ellipse.segments(self, precision)[0]
-    
+
     def P(self, t):
         '''Return a Point on the Arc for t in [0..1]'''
         #TODO change point cords if rotation is set
@@ -920,13 +922,13 @@ class Text(Transformable):
             if self.font_family:
                 self.font_file = self.find_font_file()
             self.text = []
-    
+
     def set_font(self, font=None, bold=None, italic=None, size=None):
         font = font if font else self.font_family
         bold = bold if bold else (self.bold.lower() != "normal")
         italic = italic if italic else (self.italic.lower() != "normal")
         size = size if size else self.size
-        if type(size) is str:
+        if isinstance(size, str):
             size = float(size.strip("px"))
 
         self.font_family = font
@@ -970,8 +972,8 @@ class Text(Transformable):
                 value = nv[ 1 ].strip()
                 if list(self.font_configs.keys()).count(name) != 0:
                     self.font_configs[name] = value
-        
-        if type(self.font_configs["font-size"]) is str:
+
+        if isinstance(self.font_configs["font-size"], str):
             float(self.font_configs["font-size"].strip("px"))
 
         for config in self.font_configs:
@@ -1027,7 +1029,7 @@ class Text(Transformable):
             ))
             self.paths = []
             return
-        
+
         bold = self.bold is not None and self.bold.lower() != "normal"
         italic = self.italic is not None and self.italic.lower() != "normal"
 
@@ -1122,7 +1124,7 @@ class Text(Transformable):
             self.paths.append(path)
         if auto_transform:
             self.transform()
-    
+
     def bbox(self):
         if self.paths is None or len(self.paths) == 0:
             return [Point(0,0),Point(0,0)]
@@ -1133,7 +1135,7 @@ class Text(Transformable):
             Point(min(bboxes, key=lambda v: v[0].x)[0].x, min(bboxes, key=lambda v: v[0].y)[0].y),
             Point(max(bboxes, key=lambda v: v[1].x)[1].x, max(bboxes, key=lambda v: v[1].y)[1].y),
         ]
-    
+
     def transform(self, matrix=None):
         if matrix is None:
             matrix = self.matrix
@@ -1143,7 +1145,7 @@ class Text(Transformable):
         for paths in self.paths:
             for path in paths:
                 path.transform(matrix)
-        
+
     def segments(self, precision=0):
         segs = []
         for paths in self.paths:

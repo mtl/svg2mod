@@ -3,6 +3,4 @@
 from .svg import *
 
 def parse(filename):
-    f = svg.Svg(filename)
-    return f
-
+    return Svg(filename)

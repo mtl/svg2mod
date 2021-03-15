@@ -252,7 +252,7 @@ class Bezier:
 
     def segments(self, precision=0):
         '''Return a poly-line approximation ("segments") of the Bezier curve
-           precision is the minimum significative length of a segment'''
+           precision is the minimum significant length of a segment'''
         segments = []
         # n is the number of Bezier points to draw according to precision
         if precision != 0:

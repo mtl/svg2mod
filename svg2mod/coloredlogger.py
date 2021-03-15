@@ -38,4 +38,4 @@ def split_logger(logger, formatter=Formatter(), breakpoint=logging.WARNING):
     logger.addHandler(hdlrerr)
     logger.addHandler(hdlrout)
 
-    
+
