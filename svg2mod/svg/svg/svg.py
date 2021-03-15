@@ -1144,13 +1144,15 @@ class Text(Transformable):
         return segs
 
     @staticmethod
-    def load_system_fonts():
-        if len(Text._system_fonts.keys()) < 1:
+    def load_system_fonts(reload=False):
+        if len(Text._system_fonts.keys()) < 1 or reload:
             fonts_files = []
-            logging.info("Found <text> element. Loading system fonts.")
+            logging.info("Loading system fonts.")
             for path in Text._os_font_paths[platform.system()]:
-                try: fonts_files.extend([os.path.join(dp, f) for dp, dn, fn in os.walk(os.path.expanduser(path)) for f in fn])
-                except: pass
+                try:
+                    fonts_files.extend([os.path.join(dp, f) for dp, dn, fn in os.walk(os.path.expanduser(path)) for f in fn])
+                except:
+                    pass
 
             for ffile in fonts_files:
                 try:
@@ -1161,7 +1163,8 @@ class Text(Transformable):
                         Text._system_fonts[name] = {style:ffile}
                     elif Text._system_fonts[name].get(style) is None:
                         Text._system_fonts[name][style] = ffile
-                except:pass
+                except:
+                    pass
             logging.debug(f"  Found {len(Text._system_fonts.keys())} fonts in system")
         return Text._system_fonts
 
@@ -1188,3 +1191,4 @@ for name, cls in inspect.getmembers(sys.modules[__name__], inspect.isclass):
     tag = getattr(cls, 'tag', None)
     if tag:
         svgClass[svg_ns + tag] = cls
+

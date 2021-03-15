@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
+import subprocess
 import setuptools
 
 
@@ -17,10 +17,11 @@ with open('README.md') as readme_file:
 tag = ""
 
 try:
-    tag = os.popen("git describe --tag")._stream.read().strip()
+    tag = subprocess.check_output(["git","describe","--tag"], stderr=subprocess.STDOUT)
+    tag = tag.stdout.decode('utf-8')
     tag = tag.replace("-", ".dev", 1).replace("-", "+")
-except:
-    tag = "development"
+except (FileNotFoundError, subprocess.CalledProcessError) as e:
+    tag = "0.dev0"
 
 requirements = [
     "fonttools"
