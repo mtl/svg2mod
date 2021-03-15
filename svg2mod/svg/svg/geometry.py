@@ -1,5 +1,5 @@
 # Copyright (C) 2013 -- CJlano < cjlano @ free.fr >
-# Copyright (C) 2021 -- svg2mod developers < github.com / svg2mod >
+# Copyright (C) 2021 -- svg2mod developers < GitHub.com / svg2mod >
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,7 +20,9 @@ This module contains all the geometric classes and functions not directly
 related to SVG parsing. It can be reused outside the scope of SVG.
 '''
 
-import math, numbers, operator
+import math
+import numbers
+import operator
 
 class Point:
     def __init__(self, x=None, y=None):
@@ -63,7 +65,7 @@ class Point:
         return Point(self.x + other.x, self.y + other.y)
 
     def __sub__(self, other):
-        '''Substract two Points.
+        '''Subtract two Points.
         >>> Point(1,2) - Point(3,2)
         (-2.000,0.000)
         '''
@@ -249,7 +251,7 @@ class Bezier:
         return (Point(xmin,ymin), Point(xmax,ymax))
 
     def segments(self, precision=0):
-        '''Return a polyline approximation ("segments") of the Bezier curve
+        '''Return a poly-line approximation ("segments") of the Bezier curve
            precision is the minimum significative length of a segment'''
         segments = []
         # n is the number of Bezier points to draw according to precision
@@ -312,7 +314,7 @@ def simplify_segment(segment, epsilon):
             key=operator.itemgetter(1))
 
     if maxDist > epsilon:
-        # Recursively call with segment splited in 2 on its furthest point
+        # Recursively call with segment split in 2 on its furthest point
         r1 = simplify_segment(segment[:index+1], epsilon)
         r2 = simplify_segment(segment[index:], epsilon)
         # Remove redundant 'middle' Point

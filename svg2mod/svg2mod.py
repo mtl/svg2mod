@@ -134,7 +134,7 @@ class LineSegment( object ):
 
     @staticmethod
     def _on_segment( p, q, r ):
-        """ Given three colinear points p, q, and r, check if
+        """ Given three collinear points p, q, and r, check if
             point q lies on line segment pr. """
 
         if (
@@ -154,7 +154,7 @@ class LineSegment( object ):
     def _orientation( p, q, r ):
         """ Find orientation of ordered triplet (p, q, r).
             Returns following values
-            0 --> p, q and r are colinear
+            0 --> p, q and r are collinear
             1 --> Clockwise
             2 --> Counterclockwise
         """
@@ -209,22 +209,22 @@ class LineSegment( object ):
 
             or
 
-            # p1, q1 and p2 are colinear and p2 lies on segment p1q1:
+            # p1, q1 and p2 are collinear and p2 lies on segment p1q1:
             ( o1 == 0 and self._on_segment( self.p, segment.p, self.q ) )
 
             or
 
-            # p1, q1 and p2 are colinear and q2 lies on segment p1q1:
+            # p1, q1 and p2 are collinear and q2 lies on segment p1q1:
             ( o2 == 0 and self._on_segment( self.p, segment.q, self.q ) )
 
             or
 
-            # p2, q2 and p1 are colinear and p1 lies on segment p2q2:
+            # p2, q2 and p1 are collinear and p1 lies on segment p2q2:
             ( o3 == 0 and self._on_segment( segment.p, self.p, segment.q ) )
 
             or
 
-            # p2, q2 and q1 are colinear and q1 lies on segment p2q2:
+            # p2, q2 and q1 are collinear and q1 lies on segment p2q2:
             ( o4 == 0 and self._on_segment( segment.p, self.q, segment.q ) )
         )
 
@@ -617,7 +617,7 @@ class Svg2ModExport( object ):
                     # the top-level viewport_scale
                     scale = self.imported.svg.viewport_scale / self.scale_factor
 
-                    # remove unessesary presion to reduce floating point errors
+                    # remove unnecessary precession to reduce floating point errors
                     stroke_width = round(stroke_width/scale, 6)
 
                 elif name == "stroke-opacity":
@@ -651,7 +651,7 @@ class Svg2ModExport( object ):
             scale_factor *= 25.4 / float(dpi)
             use_mm = True
         else:
-            # PCBNew uses "decimil" (10K DPI);
+            # PCBNew uses decimal (10K DPI);
             scale_factor *= 10000.0 / float(dpi)
 
         self.imported = svg2mod_import

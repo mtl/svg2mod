@@ -19,16 +19,24 @@
 
 from __future__ import absolute_import
 import xml.etree.ElementTree as etree
-import traceback, math
-import sys, os, copy, re
-import itertools, operator
+import math
+import sys
+import os
+import copy
+import re
+import itertools
+import operator
 import platform
-import json, logging
-from .geometry import *
+import json
+import logging
+import inspect
+
 from fontTools.ttLib import ttFont
 from fontTools.pens.recordingPen import RecordingPen
 from fontTools.pens.basePen import decomposeQuadraticSegment
 from fontTools.misc import loggingTools
+
+from .geometry import *
 
 # Make fontTools more quiet
 loggingTools.configLogger(level=logging.INFO)
@@ -468,7 +476,7 @@ class Path(Transformable):
                 else:
                     pt0 = current_pt
                 pt1 = current_pt
-                # Symetrical of pt1 against pt0
+                # Symmetrical of pt1 against pt0
                 bezier_pts.append(pt1 + pt1 - pt0)
 
                 for i in range(0,nbpts[command]):
@@ -486,7 +494,7 @@ class Path(Transformable):
                 rx = pathlst.pop()
                 ry = pathlst.pop()
                 xrot = pathlst.pop()
-                # Arc flags are not necesarily sepatated numbers
+                # Arc flags are not necessarily separated numbers
                 flags = pathlst.pop().strip()
                 large_arc_flag = flags[0]
                 if large_arc_flag not in '01':
@@ -611,7 +619,7 @@ class Ellipse(Transformable):
     def simplify(self, precision):
         return self
 
-# An arc is an ellipse with a begining and an end point instead of an entire circumference 
+# An arc is an ellipse with a beginning and an end point instead of an entire circumference 
 class Arc(Ellipse):
     '''SVG <ellipse>'''
     # class Ellipse handles the <ellipse> tag
@@ -701,7 +709,7 @@ class Arc(Ellipse):
         else:
             xroots = [(-qb+math.sqrt(root))/(2*qa), (-qb-math.sqrt(root))/(2*qa)]
             points = [Point(xroots[0], xroots[0]*m + b), Point(xroots[1], xroots[1]*m + b)]
-            # Calculate the angle of the begining point to the end point
+            # Calculate the angle of the beginning point to the end point
 
             # If counterclockwise the two angles are the angle is within 180 degrees of each other:
             #   and no flags are set use the first center
@@ -733,7 +741,7 @@ class Arc(Ellipse):
             point = Point(round(point.x, 10), round(point.y, 10))
         self.center = point
 
-        # Calculate start and end angle of the unrotated arc
+        # Calculate start and end angle of the un-rotated arc
         if len(self.angles) < 2:
             self.angles = []
             for pt in self.end_pts:
@@ -755,7 +763,7 @@ class Arc(Ellipse):
     
     def P(self, t):
         '''Return a Point on the Arc for t in [0..1]'''
-        #TODO change point cords if rotaion
+        #TODO change point cords if rotation is set
         x = self.center.x + self.rx * math.cos(((self.angles[1] - self.angles[0]) * t) + self.angles[0])
         y = self.center.y + self.ry * math.sin(((self.angles[1] - self.angles[0]) * t) + self.angles[0])
         return Point(x,y)
@@ -948,7 +956,7 @@ class Text(Transformable):
         x = elt.get('x')
         y = elt.get('y')
 
-        # It seems that any values in style that override these values take precidence
+        # It seems that any values in style that override these values take precedence
         self.font_configs = {
             "font-family": elt.get('font-family'),
             "font-size": elt.get('font-size'),
@@ -1184,7 +1192,7 @@ class JSONEncoder(json.JSONEncoder):
 
 # SVG tag handler classes are initialized here
 # (classes must be defined before)
-import inspect
+
 svgClass = {}
 # Register all classes with attribute 'tag' in svgClass dict
 for name, cls in inspect.getmembers(sys.modules[__name__], inspect.isclass):

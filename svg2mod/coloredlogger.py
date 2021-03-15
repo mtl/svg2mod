@@ -24,8 +24,8 @@ class Formatter(logging.Formatter):
         self._style._fmt = fmt_org
         return result
 
-# This will split logging messegaes at breakpoint. Anything higher will be sent 
-# to sys.stderr and everything else to sys.stdout
+# This will split logging messages at the specified break point. Anything higher
+# will be sent to sys.stderr and everything else to sys.stdout
 def split_logger(logger, formatter=Formatter(), breakpoint=logging.WARNING):
     hdlrerr = logging.StreamHandler(sys.stderr)
     hdlrerr.addFilter(lambda msg: breakpoint <= msg.levelno)
