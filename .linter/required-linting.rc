@@ -22,7 +22,7 @@ ignore-patterns=
 
 # Use multiple processes to speed up Pylint. Specifying 0 will auto-detect the
 # number of processors available to use.
-jobs=0
+jobs=1
 
 # Control the amount of potential inferred values when inferring a single
 # object. This can help the performance when dealing with large functions or
@@ -75,7 +75,7 @@ enable=c-extension-no-member,
 		bad-indentation,
 		unidiomatic-typecheck,
 		undefined-variable,
-		no-member,
+		#no-member,
 		dangerous-default-value,
 		expression-not-assigned,
         invalid-length-returned,
@@ -112,6 +112,9 @@ enable=c-extension-no-member,
         assignment-from-no-return,
         fatal,
         parse-error,
+        wrong-spelling-in-comment,
+        wrong-spelling-in-docstring,
+        invalid-characters-in-docstring
 
 
 [REPORTS]
@@ -189,13 +192,13 @@ max-spelling-suggestions=4
 # Spelling dictionary name. Available dictionaries: en_GB (hunspell), en_ZA
 # (hunspell), en_AU (hunspell), en_US (hunspell), en (aspell), en_CA
 # (hunspell).
-spelling-dict=
+spelling-dict=en_US
 
 # List of comma separated words that should not be checked.
 spelling-ignore-words=
 
 # A path to a file that contains the private dictionary; one word per line.
-spelling-private-dict-file=
+spelling-private-dict-file=.linter/custom_dict
 
 # Tells whether to store unknown words to the private dictionary (see the
 # --spelling-private-dict-file option) instead of raising a message.

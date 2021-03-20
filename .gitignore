@@ -4,6 +4,10 @@
 build
 dist
 svg2mod.egg-info
+.eggs
 *.kicad_mod
 *.mod
 __pycache__
+.pytest-cache
+Pipfile
+Pipfile.lock

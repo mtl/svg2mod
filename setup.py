@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+'''
+to install system wide use `pip install .`
+testing is done via `python setup.py test`
+'''
 
 import subprocess
 import setuptools
@@ -27,8 +31,11 @@ requirements = [
     "fonttools"
 ]
 
+setup_requirements = [
+	"pytest-runner", "pytest-pylint",
+]
 test_requirements = [
-	"pytest", "pylint", "pyenchant"
+	"pytest", "pylint", "pyenchant",
 ]
 
 setup(
@@ -58,6 +65,7 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.7',
     ],
-    test_suite='tests',
+	setup_requires=setup_requirements,
+    test_suite='test',
     tests_require=test_requirements
 )

@@ -134,7 +134,7 @@ def main():
 
 #----------------------------------------------------------------------------
 
-class LineSegment( object ):
+class LineSegment:
 
     #------------------------------------------------------------------------
 
@@ -254,7 +254,7 @@ class LineSegment( object ):
 
 #----------------------------------------------------------------------------
 
-class PolygonSegment( object ):
+class PolygonSegment:
 
     #------------------------------------------------------------------------
 
@@ -494,12 +494,12 @@ class PolygonSegment( object ):
 
     #------------------------------------------------------------------------
 
-    # Calculate bounding box of self
-    def bounding_box(self):
-        self.bbox =  [
+    def calc_bbox(self) -> (svg.Point, svg.Point):
+        '''Calculate bounding box of self'''
+        self.bbox =  (
             svg.Point(min(self.points, key=lambda v: v.x).x, min(self.points, key=lambda v: v.y).y),
             svg.Point(max(self.points, key=lambda v: v.x).x, max(self.points, key=lambda v: v.y).y),
-        ]
+        )
 
     #------------------------------------------------------------------------
 
@@ -530,7 +530,7 @@ class PolygonSegment( object ):
 
 #----------------------------------------------------------------------------
 
-class Svg2ModImport( object ):
+class Svg2ModImport:
 
     #------------------------------------------------------------------------
 
@@ -573,7 +573,7 @@ class Svg2ModImport( object ):
 
 #----------------------------------------------------------------------------
 
-class Svg2ModExport( object ):
+class Svg2ModExport:
 
     #------------------------------------------------------------------------
 
@@ -599,9 +599,9 @@ class Svg2ModExport( object ):
 
         if item.style is not None and item.style != "":
 
-            for property in filter(None, item.style.split( ";" )):
+            for prprty in filter(None, item.style.split( ";" )):
 
-                nv = property.split( ":" )
+                nv = prprty.split( ":" )
                 name = nv[ 0 ].strip()
                 value = nv[ 1 ].strip()
 
@@ -745,12 +745,7 @@ class Svg2ModExport( object ):
                 self._write_items( item.items, layer, flip )
                 continue
 
-            elif (
-                    isinstance( item, svg.Path ) or
-                    isinstance( item, svg.Ellipse) or
-                    isinstance( item, svg.Rect ) or
-                    isinstance( item, svg.Text )
-                ):
+            elif isinstance( item, (svg.Path, svg.Ellipse, svg.Rect, svg.Text)):
 
                 segments = [
                     PolygonSegment( segment )
@@ -766,7 +761,8 @@ class Svg2ModExport( object ):
                     segment.process( self, flip, fill )
 
                 if len( segments ) > 1:
-                    [poly.bounding_box() for poly in segments]
+                    for poly in segments:
+                        poly.calc_bbox()
                     segments.sort(key=lambda v: svg.Segment(v.bbox[0], v.bbox[1]).length(), reverse=True)
 
                     while len(segments) > 0:
@@ -1198,7 +1194,7 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
             if line[ : 6 ] == "$INDEX":
                 break
 
-            m = re.match( "Units[\s]+mm[\s]*", line )
+            m = re.match( r"Units[\s]+mm[\s]*", line )
             if m is not None:
                 use_mm = True
 
@@ -1238,13 +1234,10 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
                 )
 
         #print( "Pre-index:" )
-        #pprint( self.pre_index )
 
         #print( "Post-index:" )
-        #pprint( self.post_index )
 
         #print( "Loaded modules:" )
-        #pprint( self.loaded_modules )
 
         return use_mm
 

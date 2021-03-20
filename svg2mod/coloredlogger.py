@@ -1,11 +1,16 @@
-# A simple modification to the formatter class in the python logger to allow
-# ANSI color codes based on the logged message's level
+'''
+A simple modification to the formatter class in the python logger to allow
+ANSI color codes based on the logged message's level
+'''
 
 import sys
 import logging
 
 
 class Formatter(logging.Formatter):
+    '''Extend formatter to add colored output functionality '''
+
+    # ASCII escape codes for supporting terminals
     color = {
         logging.CRITICAL: "\033[91m\033[7m", #Set red and swap background and foreground
         logging.ERROR: "\033[91m", #Set red
@@ -14,24 +19,32 @@ class Formatter(logging.Formatter):
         logging.INFO: "" #Do nothing
     }
     reset = "\033[0m" # Reset the terminal back to default color/emphasis
+
     def __init__(self, fmt="%(message)s", datefmt=None, style="%"):
         super().__init__(fmt, datefmt, style)
 
     def format(self, record):
+        '''Overwrite the format function.
+        This saves the original style, overwrites it to support
+        color, sends the message to the super.format, and
+        finally returns the style to the original format
+        '''
         fmt_org = self._style._fmt
         self._style._fmt = Formatter.color[record.levelno] + fmt_org + Formatter.reset
         result = logging.Formatter.format(self, record)
         self._style._fmt = fmt_org
         return result
 
-# This will split logging messages at the specified break point. Anything higher
-# will be sent to sys.stderr and everything else to sys.stdout
-def split_logger(logger, formatter=Formatter(), breakpoint=logging.WARNING):
+def split_logger(logger, formatter=Formatter(), brkpoint=logging.WARNING):
+    '''This will split logging messages at the specified break point. Anything higher
+    will be sent to sys.stderr and everything else to sys.stdout
+    '''
+
     hdlrerr = logging.StreamHandler(sys.stderr)
-    hdlrerr.addFilter(lambda msg: breakpoint <= msg.levelno)
+    hdlrerr.addFilter(lambda msg: brkpoint <= msg.levelno)
 
     hdlrout = logging.StreamHandler(sys.stdout)
-    hdlrout.addFilter(lambda msg: breakpoint > msg.levelno)
+    hdlrout.addFilter(lambda msg: brkpoint > msg.levelno)
 
     hdlrerr.setFormatter(formatter)
     hdlrout.setFormatter(formatter)

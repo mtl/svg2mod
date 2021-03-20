@@ -16,8 +16,11 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+'''
+A SVG parser with tools to convert an XML svg file
+to objects that can be simplified into points.
+'''
 
-from __future__ import absolute_import
 import xml.etree.ElementTree as etree
 import math
 import sys
@@ -36,10 +39,7 @@ from fontTools.pens.recordingPen import RecordingPen
 from fontTools.pens.basePen import decomposeQuadraticSegment
 from fontTools.misc import loggingTools
 
-from .geometry import *
-
-# Make fontTools more quiet
-loggingTools.configLogger(level=logging.INFO)
+from .geometry import Point,Angle,Segment,Bezier,MoveTo,simplify_segment
 
 
 svg_ns = '{http://www.w3.org/2000/svg}'
@@ -78,10 +78,10 @@ class Transformable:
         if elt is not None:
             self.id = elt.get('id', self.id)
             # Parse transform attribute to update self.matrix
-            self.getTransformations(elt)
+            self.get_transformations(elt)
 
     def bbox(self):
-        '''Bounding box'''
+        '''Bounding box of all points'''
         bboxes = [x.bbox() for x in self.items]
         if len( bboxes ) < 1:
             return (Point(0, 0), Point(0, 0))
@@ -93,7 +93,10 @@ class Transformable:
         return (Point(xmin,ymin), Point(xmax,ymax))
 
     # Parse transform field
-    def getTransformations(self, elt):
+    def get_transformations(self, elt):
+        '''Take an xml element and parse transformation commands
+        then apply the matrix and set any needed variables
+        '''
         t = elt.get('transform')
         if t is None: return
 
@@ -104,7 +107,7 @@ class Transformable:
         # [^)]*    == anything but a closing parenthesis
         # '|'.join == OR-list of SVG transformations
         transforms = re.findall(
-                '|'.join([x + '[^)]*\)' for x in svg_transforms]), t)
+                '|'.join([x + r'[^)]*\)' for x in svg_transforms]), t)
 
         for t in transforms:
             op, arg = t.split('(')
@@ -150,6 +153,10 @@ class Transformable:
                 self.matrix *= Matrix([1, tana, 0, 1, 0, 0])
 
     def transform(self, matrix=None):
+        '''Apply the provided matrix. Default (None)
+        If no matrix is supplied then recursively apply
+        it's already existing matrix to all items.
+        '''
         if matrix is None:
             matrix = self.matrix
         else:
@@ -161,6 +168,7 @@ class Transformable:
             x.transform(matrix)
 
     def length(self, v, mode='xy'):
+        '''Return generic 2 dimensional length of svg element'''
         # Handle empty (non-existing) length element
         if v is None:
             return 0
@@ -186,8 +194,10 @@ class Transformable:
         return float(value) * unit_convert[unit]
 
     def xlength(self, x):
+        '''Length of element's x component'''
         return self.length(x, 'x')
     def ylength(self, y):
+        '''Length of element's y component'''
         return self.length(y, 'y')
 
     def flatten(self):
@@ -215,7 +225,10 @@ class Svg(Transformable):
         if filename:
             self.parse(filename)
 
-    def parse(self, filename):
+    def parse(self, filename:str):
+        '''Read provided svg xml file and
+        append all svg element to items list
+        '''
         self.filename = filename
         tree = etree.parse(filename)
         self.root = tree.getroot()
@@ -235,19 +248,19 @@ class Svg(Transformable):
 
         # viewBox
         if self.root.get('viewBox') is not None:
-            viewBox = re.findall(number_re, self.root.get('viewBox'))
+            view_box = re.findall(number_re, self.root.get('viewBox'))
 
             # If the document somehow doesn't have dimensions get if from viewBox
             if self.root.get('width') is None or self.root.get('height') is None:
-                width = float(viewBox[2])
-                height = float(viewBox[3])
-                logging.warning("Unable to find width of height properties. Falling back to viewBox.")
+                width = float(view_box[2])
+                height = float(view_box[3])
+                logging.warning("Unable to find width or height properties. Using viewBox.")
 
-            sx = width / float(viewBox[2])
-            sy = height / float(viewBox[3])
-            tx = -float(viewBox[0])
-            ty = -float(viewBox[1])
-            self.viewport_scale = round(float(viewBox[2])/width, 6)
+            sx = width / float(view_box[2])
+            sy = height / float(view_box[3])
+            tx = -float(view_box[0])
+            ty = -float(view_box[1])
+            self.viewport_scale = round(float(view_box[2])/width, 6)
             top_group.matrix = Matrix([sx, 0, 0, sy, tx, ty])
         if ( self.root.get("width") is None or self.root.get("height") is None ) \
                 and self.root.get("viewBox") is None:
@@ -260,6 +273,7 @@ class Svg(Transformable):
         self.transform()
 
     def title(self):
+        '''Returns svg title if exists. Otherwise try to return filename'''
         t = self.root.find(svg_ns + 'title')
         if t is not None:
             return t
@@ -267,11 +281,16 @@ class Svg(Transformable):
             return os.path.splitext(os.path.basename(self.filename))[0]
 
     def json(self):
+        '''Return a dictionary of children items'''
         return self.items
 
 
 class Group(Transformable):
-    '''Handle svg <g> elements'''
+    '''Handle svg <g> elements
+    The name and hidden attributes are stored in self.name
+    and self.hidden respectively. These can be manually set
+    if object is not initialized with an xml element.
+    '''
     # class Group handles the <g> tag
     tag = 'g'
 
@@ -281,17 +300,18 @@ class Group(Transformable):
         self.name = ""
         self.hidden = False
         if elt is not None:
-            for id, value in elt.attrib.items():
+            for ident, value in elt.attrib.items():
 
-                id = self.parse_name( id )
-                if id[ "name" ] == "label":
+                ident = self.parse_name( ident )
+                if ident[ "name" ] == "label":
                     self.name = value
-                if id[ "name" ] == "style":
-                    if re.search( "display\s*:\s*none", value ):
+                if ident[ "name" ] == "style":
+                    if re.search( r"display\s*:\s*none", value ):
                         self.hidden = True
 
     @staticmethod
     def parse_name( tag ):
+        '''Read and return name from xml data'''
         m = re.match( r'({(.+)})?(.+)', tag )
         return {
             'namespace' : m.group( 2 ),
@@ -299,6 +319,12 @@ class Group(Transformable):
         }
 
     def append(self, element):
+        '''Convert and append xml element(s) to items list
+        element is expected to be iterable.
+        If an svg non xml object needs to be appended
+        then interface directly with the items list:
+                group.items.append(svg_object)
+        '''
         for elt in element:
             elt_class = svgClass.get(elt.tag, None)
             if elt_class is None:
@@ -322,6 +348,7 @@ class Group(Transformable):
         return '<Group ' + self.id + " ({})".format( self.name ) + '>: ' + repr(self.items)
 
     def json(self):
+        '''Return json formatted dictionary of group'''
         return {'Group ' + self.id + " ({})".format( self.name ) : self.items}
 
 class Matrix:
@@ -366,17 +393,23 @@ class Matrix:
         return str(self.vect)
 
     def xlength(self, x):
+        '''x scale of vector'''
         return x * self.vect[0]
     def ylength(self, y):
+        '''y scale of vector'''
         return y * self.vect[3]
 
 
-COMMANDS = 'MmZzLlHhVvCcSsQqTtAa'
 
 class Path(Transformable):
-    '''SVG <path>'''
+    '''SVG <path> tag handler
+    self.items contains all objects for path instructions.
+    Calling .parse(...) will append new path instruction
+    objects to items list.
+    '''
     # class Path handles the <path> tag
     tag = 'path'
+    COMMANDS = 'MmZzLlHhVvCcSsQqTtAa'
 
     def __init__(self, elt=None):
         Transformable.__init__(self, elt)
@@ -384,10 +417,10 @@ class Path(Transformable):
             self.style = elt.get('style')
             self.parse(elt.get('d'))
 
-    def parse(self, pathstr):
-        """Parse path string and build elements list"""
+    def parse(self, pathstr:str):
+        """Parse svg path string and build elements list"""
 
-        pathlst = re.findall(number_re + r"|\ *[%s]\ *" % COMMANDS, pathstr)
+        pathlst = re.findall(number_re + r"|\ *[%s]\ *" % Path.COMMANDS, pathstr)
 
         pathlst.reverse()
 
@@ -396,7 +429,7 @@ class Path(Transformable):
         start_pt = None
 
         while pathlst:
-            if pathlst[-1].strip() in COMMANDS:
+            if pathlst[-1].strip() in Path.COMMANDS:
                 last_command = command
                 command = pathlst.pop().strip()
                 absolute = (command == command.upper())
@@ -528,7 +561,7 @@ class Path(Transformable):
     def __repr__(self):
         return '<Path ' + self.id + '>'
 
-    def segments(self, precision=0):
+    def segments(self, precision=0) -> list:
         '''Return a list of segments, each segment is ended by a MoveTo.
            A segment is a list of Points'''
         ret = []
@@ -544,7 +577,7 @@ class Path(Transformable):
 
         return ret
 
-    def simplify(self, precision):
+    def simplify(self, precision:float) -> list:
         '''Simplify segment with precision:
            Remove any point which are ~aligned'''
         ret = []
@@ -554,13 +587,22 @@ class Path(Transformable):
         return ret
 
 class Ellipse(Transformable):
-    '''SVG <ellipse>'''
+    '''SVG <ellipse> tag handler
+    An ellipse is created by the center point (center)
+    the x radius (rx) and the y radius (ry).
+    Setting these values will change the ellipse
+    regardless if it was created by an xml element.
+
+    If provided xml has a 'd' attribute or path
+    then this will also parse that.
+        (This is for support of inkscape arc objects)
+    '''
     # class Ellipse handles the <ellipse> tag
     tag = 'ellipse'
-    arc = False
 
     def __init__(self, elt=None):
         Transformable.__init__(self, elt)
+        arc = False
         if elt is not None:
             self.center = Point(self.xlength(elt.get('cx')),
                                 self.ylength(elt.get('cy')))
@@ -571,11 +613,15 @@ class Ellipse(Transformable):
                 self.arc = True
                 self.path = Path(elt)
                 self.path_str = elt.get('d')
+        else:
+            self.center = Point(0,0)
+            self.rx = 0
+            self.ry = 0
 
     def __repr__(self):
         return '<Ellipse ' + self.id + '>'
 
-    def bbox(self):
+    def bbox(self) -> (Point, Point):
         '''Bounding box'''
         #TODO change bounding box dependent on rotation
         pmin = self.center - Point(self.rx, self.ry)
@@ -583,6 +629,11 @@ class Ellipse(Transformable):
         return (pmin, pmax)
 
     def transform(self, matrix=None):
+        '''Apply the provided matrix. Default (None)
+        If no matrix is supplied then recursively apply
+        it's already existing matrix to all items.
+        Also apply to center, rx, and ry
+        '''
         if matrix is None:
             matrix = self.matrix
         else:
@@ -591,14 +642,15 @@ class Ellipse(Transformable):
         self.rx = matrix.xlength(self.rx)
         self.ry = matrix.ylength(self.ry)
 
-    def P(self, t):
-        '''Return a Point on the Ellipse for t in [0..1]'''
+    def P(self, t) -> Point:
+        '''Return a Point on the Ellipse for t in [0..1] or % from angle 0 to the full circle'''
         #TODO change point cords if rotation is set
         x = self.center.x + self.rx * math.cos(2 * math.pi * t)
         y = self.center.y + self.ry * math.sin(2 * math.pi * t)
         return Point(x,y)
 
-    def segments(self, precision=0):
+    def segments(self, precision=0) -> list:
+        '''Flatten all curves to segments with target length of precision'''
         if self.arc:
             segs = self.path.segments(precision)
             return segs
@@ -619,13 +671,15 @@ class Ellipse(Transformable):
         return [ret]
 
     def simplify(self, precision):
+        '''Return self because a 3 point representation is already simple'''
         return self
 
 # An arc is an ellipse with a beginning and an end point instead of an entire circumference
 class Arc(Ellipse):
-    '''SVG <ellipse>'''
-    # class Ellipse handles the <ellipse> tag
-    tag = 'ellipse'
+    '''This inherits from Ellipse but does not have a svg tag
+    Because there are no arc tags this class converts the
+    path data for an arc into an object that can be flattened.
+    '''
 
     def __init__(self, start_pt, rx, ry, xrot, large_arc_flag, sweep_flag, end_pt):
         Ellipse.__init__(self, None)
@@ -646,6 +700,15 @@ class Arc(Ellipse):
         return '<Arc ' + self.id + '>'
 
     def calcuate_center(self):
+        '''Calculate the center point of the arc from the
+        non-intuitively provided data in an svg path.
+
+        This is done by creating rotated ellipses around
+        the start and end point. Then choosing the correct
+        intersection point based on the two arc choosing flags.
+        If there is no intersection then the center is the midpoint
+        between the beginning and end points.
+        '''
         angle = Angle(math.radians(self.rotation))
 
         # set some variables that are used often to decrease size of final equations
@@ -663,12 +726,18 @@ class Arc(Ellipse):
         if y != 0:
             # Finish calculating the line
             m = ( -2*pts[0].x*rc + 2*pts[1].x*rc - pts[0].y*cs2 + pts[1].y*cs2 ) / -y
-            b = ( math.pow(pts[0].x,2)*rc - math.pow(pts[1].x,2)*rc + pts[0].x*pts[0].y*cs2 - pts[1].x*pts[1].y*cs2 + math.pow(pts[0].y,2)*(rs) - math.pow(pts[1].y,2)*rs ) / -y
+            b = (
+                math.pow(pts[0].x,2)*rc - math.pow(pts[1].x,2)*rc + pts[0].x*pts[0].y*cs2 -
+                pts[1].x*pts[1].y*cs2 + math.pow(pts[0].y,2)*(rs) - math.pow(pts[1].y,2)*rs
+            ) / -y
 
             # Now that we have a line we can setup a quadratic equation to solve for all intersection points
             qa = rc + m*cs2 + math.pow(m,2)*rs
             qb = -2*pts[0].x*rc + b*cs2 - pts[0].y*cs2 - m*pts[0].x*cs2 + 2*m*b*rs - 2*pts[0].y*m*rs
-            qc = math.pow(pts[0].x,2)*rc - b*pts[0].x*cs2 + pts[0].x*pts[0].y*cs2 + math.pow(b,2)*rs - 2*b*pts[0].y*rs + math.pow(pts[0].y,2)*rs - math.pow(self.rx*self.ry, 2)
+            qc = (
+                math.pow(pts[0].x,2)*rc - b*pts[0].x*cs2 + pts[0].x*pts[0].y*cs2 + math.pow(b,2)*rs -
+                2*b*pts[0].y*rs + math.pow(pts[0].y,2)*rs - math.pow(self.rx*self.ry, 2)
+            )
 
         else:
             # When the slope is vertical we need to calculate with x instead of y
@@ -679,7 +748,10 @@ class Arc(Ellipse):
             # The quadratic formula but solving for y instead of x and only when the slope is vertical
             qa = rs
             qb =  x*cs2 - pts[0].x*cs2 - 2*pts[0].y*rs
-            qc = math.pow(x,2)*rc - 2*x*pts[0].x*rc + math.pow(pts[0].x,2)*rc - x*pts[0].y*cs2 + pts[0].x*pts[0].y*cs2 + math.pow(pts[0].y,2)*rs - math.pow(self.rx*self.ry, 2)
+            qc = (
+                math.pow(x,2)*rc - 2*x*pts[0].x*rc + math.pow(pts[0].x,2)*rc - x*pts[0].y*cs2 +
+                pts[0].x*pts[0].y*cs2 + math.pow(pts[0].y,2)*rs - math.pow(self.rx*self.ry, 2)
+            )
 
         # This is the value to see how many real solutions the quadratic equation has.
         # if root is negative then there are only imaginary solutions or no real solutions
@@ -696,8 +768,8 @@ class Arc(Ellipse):
             # Adjust the angle to compensate for ellipse irregularity
             ptAng = math.atan((self.rx/self.ry) * math.tan(ptAng))
             # Calculate scaling factor between provided ellipse and actual end points
-            radius = math.sqrt(math.pow(self.rx * math.cos(ptAng),2) + math.pow(self.ry * math.sin(ptAng),2))
-            dist = math.sqrt( math.pow(self.end_pts[0].x-point.x, 2) + math.pow(self.end_pts[0].y-point.y, 2))
+            radius = math.sqrt(math.pow(self.rx*math.cos(ptAng),2) + math.pow(self.ry*math.sin(ptAng),2))
+            dist = math.sqrt( math.pow(self.end_pts[0].x-point.x, 2)+math.pow(self.end_pts[0].y-point.y, 2))
             factor = dist/radius
             self.rx *= factor
             self.ry *= factor
@@ -758,14 +830,20 @@ class Arc(Ellipse):
             self.angles[1] += 2*math.pi
 
 
-    def segments(self, precision=0):
+    def segments(self, precision=0) -> list:
+        '''This returns segments as expected by the
+        Path object. (A list of points. Not a list of lists of points)
+        '''
         if max(self.rx, self.ry) < precision:
             return self.end_pts
         return Ellipse.segments(self, precision)[0]
 
-    def P(self, t):
-        '''Return a Point on the Arc for t in [0..1]'''
+    def P(self, t) -> Point:
+        '''Return a Point on the Arc for t in [0..1] where t is the % from
+        the start angle to the end angle
+        '''
         #TODO change point cords if rotation is set
+        # the angles are set in the calculate_center function
         x = self.center.x + self.rx * math.cos(((self.angles[1] - self.angles[0]) * t) + self.angles[0])
         y = self.center.y + self.ry * math.sin(((self.angles[1] - self.angles[0]) * t) + self.angles[0])
         return Point(x,y)
@@ -774,7 +852,9 @@ class Arc(Ellipse):
 
 # A circle is a special type of ellipse where rx = ry = radius
 class Circle(Ellipse):
-    '''SVG <circle>'''
+    '''SVG <circle> tag handler
+    This is an ellipse by rx and ry are equal.
+    '''
     # class Circle handles the <circle> tag
     tag = 'circle'
 
@@ -788,7 +868,14 @@ class Circle(Ellipse):
         return '<Circle ' + self.id + '>'
 
 class Rect(Transformable):
-    '''SVG <rect>'''
+    '''SVG <rect> tag handler
+    This decompiles a rectangle svg xml element into
+    essentially a path with 4 segments.
+
+    P1 and P2 are the opposing corner points.
+
+    As of now corner radii are not supported.
+    '''
     # class Rect handles the <rect> tag
     tag = 'rect'
 
@@ -807,7 +894,7 @@ class Rect(Transformable):
     def __repr__(self):
         return '<Rect ' + self.id + '>'
 
-    def bbox(self):
+    def bbox(self) -> (Point, Point):
         '''Bounding box'''
         xmin = min([p.x for p in (self.P1, self.P2)])
         xmax = max([p.x for p in (self.P1, self.P2)])
@@ -817,6 +904,10 @@ class Rect(Transformable):
         return (Point(xmin,ymin), Point(xmax,ymax))
 
     def transform(self, matrix=None):
+        '''Apply the provided matrix. Default (None)
+        If no matrix is supplied then recursively apply
+        it's already existing matrix to all items.
+        '''
         if matrix is None:
             matrix = self.matrix
         else:
@@ -824,14 +915,15 @@ class Rect(Transformable):
         self.P1 = matrix * self.P1
         self.P2 = matrix * self.P2
 
-    def segments(self, precision=0):
-        # A rectangle is built with a segment going thru 4 points
+    def segments(self, precision=0) -> list:
+        '''A rectangle is built with a segment going thru 4 points'''
         ret = []
         Pa, Pb = Point(0,0),Point(0,0)
         if self.rotation % 90 == 0:
             Pa = Point(self.P1.x, self.P2.y)
             Pb = Point(self.P2.x, self.P1.y)
         else:
+            # TODO use builtin rotation function
             sa = math.sin(math.radians(self.rotation)) / math.cos(math.radians(self.rotation))
             sb = -1 / sa
             ba = -sa * self.P1.x + self.P1.y
@@ -846,11 +938,12 @@ class Rect(Transformable):
         ret.append([self.P1, Pa, self.P2, Pb, self.P1])
         return ret
 
-    def simplify(self, precision):
-        return self.segments(precision)
 
 class Line(Transformable):
-    '''SVG <line>'''
+    '''SVG <line> tag handler
+
+    This is essentially a wrapper around the Segment class
+    '''
     # class Line handles the <line> tag
     tag = 'line'
 
@@ -866,7 +959,7 @@ class Line(Transformable):
     def __repr__(self):
         return '<Line ' + self.id + '>'
 
-    def bbox(self):
+    def bbox(self) -> (Point, Point):
         '''Bounding box'''
         xmin = min([p.x for p in (self.P1, self.P2)])
         xmax = max([p.x for p in (self.P1, self.P2)])
@@ -876,6 +969,10 @@ class Line(Transformable):
         return (Point(xmin,ymin), Point(xmax,ymax))
 
     def transform(self, matrix):
+        '''Apply the provided matrix. Default (None)
+        If no matrix is supplied then recursively apply
+        it's already existing matrix to all items.
+        '''
         if matrix is None:
             matrix = self.matrix
         else:
@@ -884,14 +981,35 @@ class Line(Transformable):
         self.P2 = matrix * self.P2
         self.segment = Segment(self.P1, self.P2)
 
-    def segments(self, precision=0):
+    def segments(self, precision=0) -> list:
+        '''Return the segment of the line'''
         return [self.segment.segments()]
 
-    def simplify(self, precision):
-        return self.segments(precision)
 
 class Text(Transformable):
-    '''SVG <text>'''
+    '''SVG <text> tag handler
+    Take provided xml text element and convert using ttf and otf fonts
+    into path element that can be used.
+
+    setting Text.default_font is important. If the listed font
+    cannot be found this is the fallback value.
+
+    A list of fonts installed on the system can be found by calling
+        Text.load_system_fonts(...)
+    this keeps all found font in memory after first time call to
+    improve performance.
+
+    All distinct text element, those that have different start locations
+    or fonts, are stored in text in a list.
+
+    Adding new strings can be done by calling add_text(...)
+    and removing strings is done by removing the item from the text list
+
+    Once all strings are properly configured in the text list running
+    convert_to_path will append a list of path elements to the paths variable
+
+    The bounding box will not report a valid size until convert_to_path has been ran.
+    '''
     # class Text handles the <text> tag
     tag = 'text'
 
@@ -907,6 +1025,7 @@ class Text(Transformable):
         Transformable.__init__(self, elt)
 
         self.bbox_points = [Point(0,0), Point(0,0)]
+        self.paths = []
 
         if elt is not None:
             self.style = elt.get('style')
@@ -924,6 +1043,12 @@ class Text(Transformable):
             self.text = []
 
     def set_font(self, font=None, bold=None, italic=None, size=None):
+        '''Set the font of the current text element.
+        font is expected to be a string of the font family name.
+        bold is expected Boolean
+        italic is expected Boolean
+        size is expected int, but can work with string ending in px
+        '''
         font = font if font else self.font_family
         bold = bold if bold else (self.bold.lower() != "normal")
         italic = italic if italic else (self.italic.lower() != "normal")
@@ -938,8 +1063,13 @@ class Text(Transformable):
         self.font_file = self.find_font_file()
 
 
-    def add_text(self, text, origin=Point(0,0)):
-        if origin == self.origin:
+    def add_text(self, text, origin=Point(0,0), inherit=True):
+        '''Add text the list of text objects
+        if the origin is not different then the parents origin or
+        inherit is set to False then a new text element will
+        be created an added to the strings tuple in the text list.
+        '''
+        if origin == self.origin and inherit:
             self.text.append((text, self))
         else:
             new_line = Text()
@@ -955,6 +1085,13 @@ class Text(Transformable):
 
 
     def parse(self, elt, parent):
+        '''Read the useful data from the xml element.
+        Since text tags can have nested text tags
+        parse can be called multiple times for one text tag.
+        However all nested tags should have parent set so
+        they can inherit and append the proper values
+        from their immediate parent
+        '''
         x = elt.get('x')
         y = elt.get('y')
 
@@ -1006,6 +1143,17 @@ class Text(Transformable):
 
 
     def find_font_file(self):
+        '''This will look through the indexed fonts and
+        attempt to find one with a matching font name and text style.
+
+        -- Faux font styles are not supported ==
+
+        If the styling cannot be found it will fallback to either
+        italic or bold if both were asked for and there wasn't a style
+        with both or regular if italic or bold are set but not found.
+
+        If the target font cannot be found then the default is used if set and found.
+        '''
         if self.font_family is None:
             if Text.default_font is None:
                 logging.error("Unable to find font because no font was specified.")
@@ -1066,6 +1214,16 @@ class Text(Transformable):
 
 
     def convert_to_path(self, auto_transform=True):
+        ''' Read the vector data from the ttf/otf file and
+        convert it into a path string for each letter and
+        parse the path string by a Path instance.
+
+        if auto_transform is True then this calls self.transform()
+        at the end to apply all transformations on the paths.
+
+        This should only be called once so double check transform()
+        is never called elsewhere.
+        '''
         self.paths = []
         prev_origin = self.text[0][1].origin
 
@@ -1117,26 +1275,34 @@ class Text(Transformable):
                 translate = Matrix([1,0,0,1,offset.x,-size+attrib.origin.y]) * Matrix([scale,0,0,scale,0,0])
                 # This queues the translations until .transform() is called
                 path[-1].matrix =  translate * path[-1].matrix
-                #path[-1].getTransformations({"transform":"translate({},{}) scale({})".format(
+                #path[-1].get_transformations({"transform":"translate({},{}) scale({})".format(
                 #    offset.x, -size+attrib.origin.y, scale)})
                 offset.x += (scale*glf.width)
 
             self.paths.append(path)
-        if auto_transform:
-            self.transform()
+        #if auto_transform:
+        #    self.transform()
 
-    def bbox(self):
+    def bbox(self) -> (Point, Point):
+        '''Find the bounding box of all the paths that make
+        each letter.
+        This will only work if there are available paths.
+        '''
         if self.paths is None or len(self.paths) == 0:
             return [Point(0,0),Point(0,0)]
 
         bboxes = [path.bbox() for paths in self.paths for path in paths]
 
-        return [
+        return (
             Point(min(bboxes, key=lambda v: v[0].x)[0].x, min(bboxes, key=lambda v: v[0].y)[0].y),
             Point(max(bboxes, key=lambda v: v[1].x)[1].x, max(bboxes, key=lambda v: v[1].y)[1].y),
-        ]
+        )
 
     def transform(self, matrix=None):
+        '''Apply the provided matrix. Default (None)
+        If no matrix is supplied then recursively apply
+        it's already existing matrix to all items.
+        '''
         if matrix is None:
             matrix = self.matrix
         else:
@@ -1146,7 +1312,11 @@ class Text(Transformable):
             for path in paths:
                 path.transform(matrix)
 
-    def segments(self, precision=0):
+    def segments(self, precision=0) -> list:
+        '''Get a list of all points in all paths
+        with provide precision.
+        This will only work if there are available paths.
+        '''
         segs = []
         for paths in self.paths:
             for path in paths:
@@ -1154,8 +1324,19 @@ class Text(Transformable):
         return segs
 
     @staticmethod
-    def load_system_fonts(reload=False):
-        if len(Text._system_fonts.keys()) < 1 or reload:
+    def load_system_fonts(reload:bool=False) -> list:
+        '''Find all fonts in common locations on the file system
+        To properly read all fonts they need to be parsed so this
+        is inherently slow on systems with many fonts.
+        To prevent long parsing time all the results are cached
+        and the cached results are returned next time this function
+        is called.
+        If a force reload of all indexed fonts is desirable setting
+        reload to True will clear the cache and re-index the system.
+        '''
+        if reload:
+            Text._system_fonts = {}
+        if len(Text._system_fonts.keys()) < 1:
             fonts_files = []
             logging.info("Loading system fonts.")
             for path in Text._os_font_paths[platform.system()]:
@@ -1179,9 +1360,10 @@ class Text(Transformable):
         return Text._system_fonts
 
 
-# overwrite JSONEncoder for svg classes which have defined a .json() method
 class JSONEncoder(json.JSONEncoder):
+    ''' overwrite JSONEncoder for svg classes which have defined a .json() method '''
     def default(self, obj):
+        ''' overwrite default function to handle svg classes '''
         if not isinstance(obj, tuple(svgClass.values() + [Svg])):
             return json.JSONEncoder.default(self, obj)
 
@@ -1191,6 +1373,9 @@ class JSONEncoder(json.JSONEncoder):
         return obj.json()
 
 ## Code executed on module load ##
+
+# Make fontTools more quiet
+loggingTools.configLogger(level=logging.INFO)
 
 # SVG tag handler classes are initialized here
 # (classes must be defined before)

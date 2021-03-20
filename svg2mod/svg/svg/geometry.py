@@ -25,6 +25,7 @@ import numbers
 import operator
 
 class Point:
+    '''Define a point as two floats accessible by x and y'''
     def __init__(self, x=None, y=None):
         '''A Point is defined either by a tuple/list of length 2 or
            by 2 coordinates
@@ -195,6 +196,7 @@ class Segment:
 
 
     def bbox(self):
+        '''Return bounding box as ( Point(min), Point(max )'''
         xmin = min(self.start.x, self.end.x)
         xmax = max(self.start.x, self.end.x)
         ymin = min(self.start.y, self.end.y)
@@ -203,6 +205,7 @@ class Segment:
         return (Point(xmin,ymin),Point(xmax,ymax))
 
     def transform(self, matrix):
+        '''Transform start and end point by provided matrix'''
         self.start = matrix * self.start
         self.end = matrix * self.end
 
@@ -221,6 +224,7 @@ class Bezier:
                 ' : ' + ", ".join([str(x) for x in self.pts])
 
     def control_point(self, n):
+        '''Return Point at index n'''
         if n >= self.dimension:
             raise LookupError('Index is larger than Bezier curve dimension')
         else:
@@ -238,6 +242,7 @@ class Bezier:
         return l
 
     def bbox(self):
+        '''This returns the rough bounding box '''
         return self.rbbox()
 
     def rbbox(self):
@@ -289,16 +294,23 @@ class Bezier:
         return res[0]
 
     def transform(self, matrix):
+        '''Transform every point by the provided matrix'''
         self.pts = [matrix * x for x in self.pts]
 
 class MoveTo:
+    '''MoveTo class
+    This will create a move without creating a segment
+    to the destination point.
+    '''
     def __init__(self, dest):
         self.dest = dest
 
     def bbox(self):
+        '''This returns a single point bounding box. ( Point(destination), Point(destination) )'''
         return (self.dest, self.dest)
 
     def transform(self, matrix):
+        '''Transform the destination point by provided matrix'''
         self.dest = matrix * self.dest
 
 
