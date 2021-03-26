@@ -21,8 +21,8 @@ with open('README.md') as readme_file:
 tag = ""
 
 try:
-    tag = subprocess.check_output(["git","describe","--tag"], stderr=subprocess.STDOUT)
-    tag = tag.stdout.decode('utf-8')
+    ps = subprocess.check_output(["git","describe","--tag"], stderr=subprocess.STDOUT)
+    tag = ps.decode('utf-8')
     tag = tag.replace("-", ".dev", 1).replace("-", "+")
 except:
     tag = "0.dev0"

@@ -8,6 +8,7 @@ svg2mod.egg-info
 *.kicad_mod
 *.mod
 __pycache__
-.pytest-cache
+.pytest_cache
 Pipfile
 Pipfile.lock
+.vscode

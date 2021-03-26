@@ -22,6 +22,7 @@ to objects that can be simplified into points.
 '''
 
 import xml.etree.ElementTree as etree
+from typing import List, Tuple
 import math
 import sys
 import os
@@ -484,7 +485,7 @@ class Path(Transformable):
                 dimension = {'Q':3, 'C':4}
                 bezier_pts = []
                 bezier_pts.append(current_pt)
-                for i in range(1,dimension[command]):
+                for _ in range(1,dimension[command]):
                     x = pathlst.pop()
                     y = pathlst.pop()
                     pt = Point(x, y)
@@ -514,7 +515,7 @@ class Path(Transformable):
                 # Symmetrical of pt1 against pt0
                 bezier_pts.append(pt1 + pt1 - pt0)
 
-                for i in range(0,nbpts[command]):
+                for _ in range(0,nbpts[command]):
                     x = pathlst.pop()
                     y = pathlst.pop()
                     pt = Point(x, y)
@@ -561,7 +562,7 @@ class Path(Transformable):
     def __repr__(self):
         return '<Path ' + self.id + '>'
 
-    def segments(self, precision=0) -> list:
+    def segments(self, precision=0) -> List[Segment]:
         '''Return a list of segments, each segment is ended by a MoveTo.
            A segment is a list of Points'''
         ret = []
@@ -577,7 +578,7 @@ class Path(Transformable):
 
         return ret
 
-    def simplify(self, precision:float) -> list:
+    def simplify(self, precision:float) -> List[Segment]:
         '''Simplify segment with precision:
            Remove any point which are ~aligned'''
         ret = []
@@ -602,7 +603,7 @@ class Ellipse(Transformable):
 
     def __init__(self, elt=None):
         Transformable.__init__(self, elt)
-        arc = False
+        self.arc = False
         if elt is not None:
             self.center = Point(self.xlength(elt.get('cx')),
                                 self.ylength(elt.get('cy')))
@@ -621,7 +622,7 @@ class Ellipse(Transformable):
     def __repr__(self):
         return '<Ellipse ' + self.id + '>'
 
-    def bbox(self) -> (Point, Point):
+    def bbox(self) -> Tuple[Point, Point]:
         '''Bounding box'''
         #TODO change bounding box dependent on rotation
         pmin = self.center - Point(self.rx, self.ry)
@@ -649,7 +650,7 @@ class Ellipse(Transformable):
         y = self.center.y + self.ry * math.sin(2 * math.pi * t)
         return Point(x,y)
 
-    def segments(self, precision=0) -> list:
+    def segments(self, precision=0) -> List[Segment]:
         '''Flatten all curves to segments with target length of precision'''
         if self.arc:
             segs = self.path.segments(precision)
@@ -661,7 +662,7 @@ class Ellipse(Transformable):
         d = 2 * max(self.rx, self.ry)
 
         while d > precision:
-            for (t1,p1),(t2,p2) in zip(p[:-1],p[1:]):
+            for (t1,_),(t2,_) in zip(p[:-1],p[1:]):
                 t = t1 + (t2 - t1)/2.
                 p.append((t, self.P(t)))
             p.sort(key=operator.itemgetter(0))
@@ -830,7 +831,7 @@ class Arc(Ellipse):
             self.angles[1] += 2*math.pi
 
 
-    def segments(self, precision=0) -> list:
+    def segments(self, precision=0) -> List[Segment]:
         '''This returns segments as expected by the
         Path object. (A list of points. Not a list of lists of points)
         '''
@@ -894,7 +895,7 @@ class Rect(Transformable):
     def __repr__(self):
         return '<Rect ' + self.id + '>'
 
-    def bbox(self) -> (Point, Point):
+    def bbox(self) -> Tuple[Point, Point]:
         '''Bounding box'''
         xmin = min([p.x for p in (self.P1, self.P2)])
         xmax = max([p.x for p in (self.P1, self.P2)])
@@ -915,7 +916,7 @@ class Rect(Transformable):
         self.P1 = matrix * self.P1
         self.P2 = matrix * self.P2
 
-    def segments(self, precision=0) -> list:
+    def segments(self, precision=0) -> List[Segment]:
         '''A rectangle is built with a segment going thru 4 points'''
         ret = []
         Pa, Pb = Point(0,0),Point(0,0)
@@ -959,7 +960,7 @@ class Line(Transformable):
     def __repr__(self):
         return '<Line ' + self.id + '>'
 
-    def bbox(self) -> (Point, Point):
+    def bbox(self) -> Tuple[Point, Point]:
         '''Bounding box'''
         xmin = min([p.x for p in (self.P1, self.P2)])
         xmax = max([p.x for p in (self.P1, self.P2)])
@@ -981,7 +982,7 @@ class Line(Transformable):
         self.P2 = matrix * self.P2
         self.segment = Segment(self.P1, self.P2)
 
-    def segments(self, precision=0) -> list:
+    def segments(self, precision=0) -> List[Segment]:
         '''Return the segment of the line'''
         return [self.segment.segments()]
 
@@ -1111,7 +1112,7 @@ class Text(Transformable):
                     self.font_configs[name] = value
 
         if isinstance(self.font_configs["font-size"], str):
-            float(self.font_configs["font-size"].strip("px"))
+            self.font_configs["font-size"] = float(self.font_configs["font-size"].strip("px"))
 
         for config in self.font_configs:
             if self.font_configs[config] is None and parent is not None:
@@ -1228,7 +1229,7 @@ class Text(Transformable):
         prev_origin = self.text[0][1].origin
 
         offset = Point(prev_origin.x, prev_origin.y)
-        for index, (text, attrib) in enumerate(self.text):
+        for text, attrib in self.text:
 
             if attrib.font_file is None or attrib.font_family is None:
                 continue
@@ -1283,7 +1284,7 @@ class Text(Transformable):
         #if auto_transform:
         #    self.transform()
 
-    def bbox(self) -> (Point, Point):
+    def bbox(self) -> Tuple[Point, Point]:
         '''Find the bounding box of all the paths that make
         each letter.
         This will only work if there are available paths.
@@ -1312,7 +1313,7 @@ class Text(Transformable):
             for path in paths:
                 path.transform(matrix)
 
-    def segments(self, precision=0) -> list:
+    def segments(self, precision=0) -> List[Segment]:
         '''Get a list of all points in all paths
         with provide precision.
         This will only work if there are available paths.
@@ -1324,7 +1325,7 @@ class Text(Transformable):
         return segs
 
     @staticmethod
-    def load_system_fonts(reload:bool=False) -> list:
+    def load_system_fonts(reload:bool=False) -> List[dict]:
         '''Find all fonts in common locations on the file system
         To properly read all fonts they need to be parsed so this
         is inherently slow on systems with many fonts.
