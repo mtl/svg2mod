@@ -188,7 +188,7 @@ class Segment:
         # Vertical Segment => pdistance is the difference of abscissa
             return abs(self.start.x - p.x)
         else:
-        # That's 2-D perpendicular distance formulae (ref: Wikipedia)
+        # That's 2-D perpendicular distance formula (ref: Wikipedia)
             slope = s.y/s.x
             # intercept: Crossing with ordinate y-axis
             intercept = self.start.y - (slope * self.start.x)

@@ -924,7 +924,7 @@ class Rect(Transformable):
             Pa = Point(self.P1.x, self.P2.y)
             Pb = Point(self.P2.x, self.P1.y)
         else:
-            # TODO use builtin rotation function
+            # TODO use built-in rotation function
             sa = math.sin(math.radians(self.rotation)) / math.cos(math.radians(self.rotation))
             sb = -1 / sa
             ba = -sa * self.P1.x + self.P1.y
@@ -993,7 +993,7 @@ class Text(Transformable):
     into path element that can be used.
 
     setting Text.default_font is important. If the listed font
-    cannot be found this is the fallback value.
+    cannot be found this is the fall back value.
 
     A list of fonts installed on the system can be found by calling
         Text.load_system_fonts(...)
@@ -1149,7 +1149,7 @@ class Text(Transformable):
 
         -- Faux font styles are not supported ==
 
-        If the styling cannot be found it will fallback to either
+        If the styling cannot be found it will fall back to either
         italic or bold if both were asked for and there wasn't a style
         with both or regular if italic or bold are set but not found.
 
