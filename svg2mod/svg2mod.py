@@ -1,6 +1,37 @@
+# Copyright (C) 2021 -- svg2mod developers < GitHub.com / svg2mod >
 
-import argparse, datetime
-import shlex, os, sys, re
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+'''
+This module contains the necessary tools to convert from
+the svg objects provided from the svg2mod.svg module to
+KiCad file formats.
+This currently supports both the pretty format and
+the legacy mod format.
+'''
+
+from abc import ABC, abstractmethod
+from typing import List, Tuple
+import argparse
+import datetime
+import shlex
+import os
+import sys
+import re
+import io
+import time
 import logging
 
 import svg2mod.svg as svg
@@ -11,12 +42,13 @@ import svg2mod.coloredlogger as coloredlogger
 DEFAULT_DPI = 96 # 96 as of Inkscape 0.92
 
 def main():
+    '''This function handles the scripting package calls.
+    It is setup to read the arguments from `get_arguments()`
+    then parse the target svg file and output all converted
+    objects into a kicad footprint module.
+    '''
 
-    args, parser = get_arguments()
-
-    pretty = args.format == 'pretty'
-    use_mm = args.units == 'mm'
-
+    args,_ = get_arguments()
 
 
     # Setup root logger to use terminal colored outputs as well as stdout and stderr
@@ -38,11 +70,26 @@ def main():
     logging.getLogger("unfiltered").info("Message Here")
     '''
 
+    if args.list_fonts:
+        fonts = svg.Text.load_system_fonts()
+        logging.getLogger("unfiltered").info("Font Name: list of supported styles.")
+        for font in fonts:
+            fnt_text = f"  {font}:"
+            for styles in fonts[font]:
+                fnt_text += f" {styles},"
+            fnt_text = fnt_text.strip(",")
+            logging.getLogger("unfiltered").info(fnt_text)
+        sys.exit(1)
+    if args.default_font:
+        svg.Text.default_font = args.default_font
+
+    pretty = args.format == 'pretty'
+    use_mm = args.units == 'mm'
 
     if pretty:
 
         if not use_mm:
-            logging.critical("Error: decimil units only allowed with legacy output type")
+            logging.critical("Error: decimal units only allowed with legacy output type")
             sys.exit( -1 )
 
         #if args.include_reverse:
@@ -128,13 +175,18 @@ def main():
 
 #----------------------------------------------------------------------------
 
-class LineSegment( object ):
+class LineSegment:
+    '''Kicad can only draw straight lines.
+    This class can be type-cast from svg.geometry.Segment
+    It is designed to have extra functions to help
+    calculate intersections.
+    '''
 
     #------------------------------------------------------------------------
 
     @staticmethod
     def _on_segment( p, q, r ):
-        """ Given three colinear points p, q, and r, check if
+        """ Given three collinear points p, q, and r, check if
             point q lies on line segment pr. """
 
         if (
@@ -154,7 +206,7 @@ class LineSegment( object ):
     def _orientation( p, q, r ):
         """ Find orientation of ordered triplet (p, q, r).
             Returns following values
-            0 --> p, q and r are colinear
+            0 --> p, q and r are collinear
             1 --> Clockwise
             2 --> Counterclockwise
         """
@@ -179,7 +231,10 @@ class LineSegment( object ):
 
     #------------------------------------------------------------------------
 
-    def connects( self, segment ):
+    def connects( self, segment: 'LineSegment' ) -> bool:
+        ''' Return true if provided segment shares
+        endpoints with the current segment
+        '''
 
         if self.q.x == segment.p.x and self.q.y == segment.p.y: return True
         if self.q.x == segment.q.x and self.q.y == segment.q.y: return True
@@ -190,7 +245,7 @@ class LineSegment( object ):
 
     #------------------------------------------------------------------------
 
-    def intersects( self, segment ):
+    def intersects( self, segment: 'LineSegment' ) -> bool:
         """ Return true if line segments 'p1q1' and 'p2q2' intersect.
             Adapted from:
               http://www.geeksforgeeks.org/check-if-two-given-line-segments-intersect/
@@ -209,43 +264,60 @@ class LineSegment( object ):
 
             or
 
-            # p1, q1 and p2 are colinear and p2 lies on segment p1q1:
+            # p1, q1 and p2 are collinear and p2 lies on segment p1q1:
             ( o1 == 0 and self._on_segment( self.p, segment.p, self.q ) )
 
             or
 
-            # p1, q1 and p2 are colinear and q2 lies on segment p1q1:
+            # p1, q1 and p2 are collinear and q2 lies on segment p1q1:
             ( o2 == 0 and self._on_segment( self.p, segment.q, self.q ) )
 
             or
 
-            # p2, q2 and p1 are colinear and p1 lies on segment p2q2:
+            # p2, q2 and p1 are collinear and p1 lies on segment p2q2:
             ( o3 == 0 and self._on_segment( segment.p, self.p, segment.q ) )
 
             or
 
-            # p2, q2 and q1 are colinear and q1 lies on segment p2q2:
+            # p2, q2 and q1 are collinear and q1 lies on segment p2q2:
             ( o4 == 0 and self._on_segment( segment.p, self.q, segment.q ) )
         )
 
 
     #------------------------------------------------------------------------
 
-    def q_next( self, q ):
+    def q_next( self, q:svg.Point ):
+        '''Shift segment endpoints so self.q is self.p
+        and q is the new self.q
+        '''
 
         self.p = self.q
         self.q = q
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, LineSegment) and
+            other.p.x == self.p.x and other.p.y == self.p.y and
+            other.q.x == self.q.x and other.q.y == self.q.y
+        )
 
 
     #------------------------------------------------------------------------
 
 #----------------------------------------------------------------------------
 
-class PolygonSegment( object ):
+class PolygonSegment:
+    ''' A polygon should be a collection of segments
+    creating an enclosed or manifold shape.
+    This class provides functionality to find overlap
+    points between a segment and it's self as well as
+    identify if another polygon rests inside of the
+    closed area of it's self.
+    '''
 
     #------------------------------------------------------------------------
 
-    def __init__( self, points):
+    def __init__( self, points:List):
 
         self.points = points
 
@@ -255,58 +327,92 @@ class PolygonSegment( object ):
 
     #------------------------------------------------------------------------
 
-    # KiCad will not "pick up the pen" when moving between a polygon outline
-    # and holes within it, so we search for a pair of points connecting the
-    # outline (self) to the hole such that the connecting segment will not
-    # cross the visible inner space within any hole.
-    def _find_insertion_point( self, hole, holes, other_insertions ):
+    def _find_insertion_point( self, hole: 'PolygonSegment', holes: list, other_insertions: list ):
+        ''' KiCad will not "pick up the pen" when moving between a polygon outline
+        and holes within it, so we search for a pair of points connecting the
+        outline (self) or other previously inserted points to the hole such
+        that the connecting segment will not cross the visible inner space
+        within any hole.
+        '''
 
-        # Try the next point on the container:
-        for cp in range( len( self.points ) ):
-            container_point = self.points[ cp ]
+        connected = list( zip(*other_insertions) )
+        if len(connected) > 0:
+            connected = [self] + list( connected[2] )
+        else:
+            connected = [self]
 
-            # Try the next point on the hole:
-            for hp in range( len( hole.points ) - 1 ):
-                hole_point = hole.points[ hp ]
+        for hp in range( len(hole.points) - 1 ):
+            for poly in connected:
+                for pp in range( len(poly.points ) - 1 ):
+                    hole_point = hole.points[hp]
+                    bridge = LineSegment( poly.points[pp], hole_point)
+                    trying_new_point = True
+                    second_bridge = None
+                    # connected_poly = poly
+                    while trying_new_point:
+                        trying_new_point = False
 
-                bridge = LineSegment( container_point, hole_point )
+                        # Check if bridge passes over other bridges that will be created
+                        bad_point = False
+                        for ip, insertion,_ in other_insertions:
+                            insert = LineSegment( ip, insertion[0])
+                            if bridge.intersects(insert):
+                                bad_point = True
+                                break
 
-                # Check if bridge passes over other bridges that will be created
-                bad_point = False
-                for index, insertion in other_insertions:
-                    insert = LineSegment( self.points[index], insertion[0])
-                    if bridge.intersects(insert):
-                        bad_point = True
-                if bad_point:
-                    continue
+                        if bad_point:
+                            continue
 
-                # Check for intersection with each other hole:
-                for other_hole in holes:
+                        # Check for intersection with each other hole:
+                        for other_hole in holes:
 
-                    # If the other hole intersects, don't bother checking
-                    # remaining holes:
-                    if other_hole.intersects(
-                        bridge,
-                        check_connects = (
-                            other_hole == hole or other_hole == self
-                        )
-                    ):break
+                            # If the other hole intersects, don't bother checking
+                            # remaining holes:
+                            res = other_hole.intersects(
+                                bridge,
+                                check_connects = (
+                                    other_hole == hole or connected.count( other_hole ) > 0
+                                ),
+                                get_points = (
+                                    other_hole == hole or connected.count( other_hole ) > 0
+                                )
+                            )
+                            if isinstance(res, bool) and res: break
+                            elif isinstance(res, tuple) and len(res) != 0:
+                                trying_new_point = True
+                                # connected_poly = other_hole
+                                if other_hole == hole:
+                                    hole_point = res[0]
+                                    bridge = LineSegment( bridge.p, res[0] )
+                                    second_bridge = LineSegment( bridge.p, res[1] )
+                                else:
+                                    bridge = LineSegment( res[0], hole_point )
+                                    second_bridge = LineSegment( res[1], hole_point )
+                                break
 
-                else:
-                    logging.debug( "  Found insertion point: {}, {}".format( cp, hp ) )
 
-                    # No other holes intersected, so this insertion point
-                    # is acceptable:
-                    return ( cp, hole.points_starting_on_index( hp ) )
+                        else:
+                            # No other holes intersected, so this insertion point
+                            # is acceptable:
+                            return ( bridge.p, hole.points_starting_on_index( hole.points.index(hole_point) ), hole )
+
+                        if second_bridge and not trying_new_point:
+                            bridge = second_bridge
+                            if hole_point != bridge.q:
+                                hole_point = bridge.q
+                            second_bridge = None
+                            trying_new_point = True
 
         logging.error("Could not insert segment without overlapping other segments")
+        exit(1)
 
 
     #------------------------------------------------------------------------
 
-    # Return the list of ordered points starting on the given index, ensuring
-    # that the first and last points are the same.
-    def points_starting_on_index( self, index ):
+    def points_starting_on_index( self, index: int ) -> List[svg.Point]:
+        ''' Return the list of ordered points starting on the given index, ensuring
+        that the first and last points are the same.
+        '''
 
         points = self.points
 
@@ -326,8 +432,8 @@ class PolygonSegment( object ):
 
     #------------------------------------------------------------------------
 
-    # Return a list of points with the given polygon segments (paths) inlined.
-    def inline( self, segments ):
+    def inline( self, segments: List[svg.Point] ) -> List[svg.Point]:
+        ''' Return a list of points with the given polygon segments (paths) inlined. '''
 
         if len( segments ) < 1:
             return self.points
@@ -346,43 +452,42 @@ class PolygonSegment( object ):
             if insertion is not None:
                 insertions.append( insertion )
 
-        insertions.sort( key = lambda i: i[ 0 ] )
-
-        inlined = [ self.points[ 0 ] ]
-        ip = 1
-        points = self.points
+        points = self.points[ : ]
 
         for insertion in insertions:
 
-            while ip <= insertion[ 0 ]:
-                inlined.append( points[ ip ] )
-                ip += 1
+            ip = points.index(insertion[0])
 
             if (
-                inlined[ -1 ].x == insertion[ 1 ][ 0 ].x and
-                inlined[ -1 ].y == insertion[ 1 ][ 0 ].y
+                points[ ip ].x == insertion[ 1 ][ 0 ].x and
+                points[ ip ].y == insertion[ 1 ][ 0 ].y
             ):
-                inlined += insertion[ 1 ][ 1 : -1 ]
+                points = points[:ip+1] + insertion[ 1 ][ 1 : -1 ] + points[ip:]
             else:
-                inlined += insertion[ 1 ]
+                points = points[:ip+1] + insertion[ 1 ] + points[ip:]
 
-            inlined.append( svg.Point(
-                points[ ip - 1 ].x,
-                points[ ip - 1 ].y,
-            ) )
-
-        while ip < len( points ):
-            inlined.append( points[ ip ] )
-            ip += 1
-
-        return inlined
+        return points
 
 
     #------------------------------------------------------------------------
 
-    def intersects( self, line_segment, check_connects ):
+    def intersects( self, line_segment: LineSegment, check_connects:bool , count_intersections=False, get_points=False):
+        '''Check to see if line_segment intersects with any
+        segments of the polygon. Default return True/False
+
+        If check_connects is True then it will skip intersections
+        that share endpoints with line_segment.
+
+        count_intersections will return the number of intersections
+        with the polygon.
+
+        get_points returns a tuple of the line that intersects
+        with line_segment
+        '''
 
         hole_segment = LineSegment()
+
+        intersections = 0
 
         # Check each segment of other hole for intersection:
         for point in self.points:
@@ -391,25 +496,33 @@ class PolygonSegment( object ):
 
             if hole_segment.p is not None:
 
-                if (
-                    check_connects and
-                    line_segment.connects( hole_segment )
-                ): continue
+                if ( check_connects and line_segment.connects( hole_segment )):
+                    continue
 
                 if line_segment.intersects( hole_segment ):
 
-                    #print( "Intersection detected." )
+                    if count_intersections:
+                        # If line_segment passes through a point this prevents a second false positive
+                        hole_segment.q = None
+                        intersections += 1
+                    elif get_points:
+                        return hole_segment.p, hole_segment.q
+                    else:
+                        return True
 
-                    return True
-
+        if count_intersections:
+            return intersections
+        if get_points:
+            return ()
         return False
 
 
     #------------------------------------------------------------------------
 
-    # Apply all transformations and rounding, then remove duplicate
-    # consecutive points along the path.
     def process( self, transformer, flip, fill ):
+        ''' Apply all transformations and rounding, then remove duplicate
+        consecutive points along the path.
+        '''
 
         points = []
         for point in self.points:
@@ -449,11 +562,47 @@ class PolygonSegment( object ):
 
     #------------------------------------------------------------------------
 
-#----------------------------------------------------------------------------
-
-class Svg2ModImport( object ):
+    def calc_bbox(self) -> Tuple[svg.Point, svg.Point]:
+        '''Calculate bounding box of self'''
+        self.bbox =  (
+            svg.Point(min(self.points, key=lambda v: v.x).x, min(self.points, key=lambda v: v.y).y),
+            svg.Point(max(self.points, key=lambda v: v.x).x, max(self.points, key=lambda v: v.y).y),
+        )
 
     #------------------------------------------------------------------------
+
+    def are_distinct(self, polygon):
+        ''' Checks if the supplied polygon either contains or insets our bounding box'''
+        distinct = True
+
+        smaller = min([self, polygon], key=lambda p: svg.Segment(p.bbox[0], p.bbox[1]).length())
+        larger = self if smaller == polygon else polygon
+
+        if (
+            larger.bbox[0].x < smaller.bbox[0].x and
+            larger.bbox[0].y < smaller.bbox[0].y and
+            larger.bbox[1].x > smaller.bbox[1].x and
+            larger.bbox[1].y > smaller.bbox[1].y
+        ):
+            distinct = False
+
+        # Check number of horizontal intersections. If the number is odd then it the smaller polygon
+        # is contained. If the number is even then the polygon is outside of the larger polygon
+        if not distinct:
+            tline = LineSegment(smaller.points[0], svg.Point(larger.bbox[1].x, smaller.points[0].y))
+            distinct = bool((larger.intersects(tline, False, True) + 1)%2)
+
+        return distinct
+    #------------------------------------------------------------------------
+
+
+#----------------------------------------------------------------------------
+
+class Svg2ModImport:
+    ''' An importer class to read in target svg,
+    parse it, and keep only layers on interest.
+    '''
+
 
     def _prune_hidden( self, items = None ):
 
@@ -475,16 +624,17 @@ class Svg2ModImport( object ):
             if(item.items):
                 self._prune_hidden( item.items )
 
-    def __init__( self, file_name, module_name, module_value, ignore_hidden_layers ):
+    def __init__( self, file_name=None, module_name="svg2mod", module_value="G***", ignore_hidden_layers=False ):
 
         self.file_name = file_name
         self.module_name = module_name
         self.module_value = module_value
 
-        logging.getLogger("unfiltered").info( "Parsing SVG..." )
+        if file_name:
+            logging.getLogger("unfiltered").info( "Parsing SVG..." )
 
-        self.svg = svg.parse( file_name)
-        logging.info("Document scaling: {} units per pixel".format(self.svg.viewport_scale))
+            self.svg = svg.parse( file_name)
+            logging.info("Document scaling: {} units per pixel".format(self.svg.viewport_scale))
         if( ignore_hidden_layers ):
             self._prune_hidden()
 
@@ -493,19 +643,63 @@ class Svg2ModImport( object ):
 
 #----------------------------------------------------------------------------
 
-class Svg2ModExport( object ):
+class Svg2ModExport(ABC):
+    ''' An abstract class to provide functionality
+    to write to kicad module file.
+    The abstract methods are the file type specific
+    example: pretty, legacy
+    '''
+
+    @property
+    @abstractmethod
+    def layer_map(self ):
+        ''' This should be overwritten by a dictionary object of layer maps '''
+        pass
+
+    @abstractmethod
+    def _get_layer_name( self, name, front ):pass
+
+    @abstractmethod
+    def _write_library_intro( self, cmdline ): pass
+
+    @abstractmethod
+    def _get_module_name( self, front = None ): pass
+
+    @abstractmethod
+    def _write_module_header( self, label_size, label_pen, reference_y, value_y, front,): pass
+
+    @abstractmethod
+    def _write_modules( self ): pass
+
+    @abstractmethod
+    def _write_module_footer( self, front ):pass
+
+    @abstractmethod
+    def _write_polygon_header( self, points, layer ):pass
+
+    @abstractmethod
+    def _write_polygon( self, points, layer, fill, stroke, stroke_width ):pass
+
+    @abstractmethod
+    def _write_polygon_footer( self, layer, stroke_width ):pass
+
+    @abstractmethod
+    def _write_polygon_point( self, point ):pass
+
+    @abstractmethod
+    def _write_polygon_segment( self, p, q, layer, stroke_width ):pass
 
     #------------------------------------------------------------------------
 
     @staticmethod
-    def _convert_decimil_to_mm( decimil ):
-        return float( decimil ) * 0.00254
+    def _convert_decimal_to_mm( decimal ):
+        return float( decimal ) * 0.00254
 
 
     #------------------------------------------------------------------------
 
     @staticmethod
-    def _convert_mm_to_decimil( mm ):
+    def _convert_mm_to_decimal( mm ):
         return int( round( mm * 393.700787 ) )
 
 
@@ -519,9 +713,9 @@ class Svg2ModExport( object ):
 
         if item.style is not None and item.style != "":
 
-            for property in filter(None, item.style.split( ";" )):
+            for prprty in filter(None, item.style.split( ";" )):
 
-                nv = property.split( ":" );
+                nv = prprty.split( ":" )
                 name = nv[ 0 ].strip()
                 value = nv[ 1 ].strip()
 
@@ -543,7 +737,7 @@ class Svg2ModExport( object ):
                     # the top-level viewport_scale
                     scale = self.imported.svg.viewport_scale / self.scale_factor
 
-                    # remove unessesary presion to reduce floating point errors
+                    # remove unnecessary precision to reduce floating point errors
                     stroke_width = round(stroke_width/scale, 6)
 
                 elif name == "stroke-opacity":
@@ -554,7 +748,7 @@ class Svg2ModExport( object ):
             stroke_width = 0.0
         elif stroke_width is None:
             # Give a default stroke width?
-            stroke_width = self._convert_decimil_to_mm( 1 ) if self.use_mm else 1
+            stroke_width = self._convert_decimal_to_mm( 1 ) if self.use_mm else 1
 
         return fill, stroke, stroke_width
 
@@ -563,9 +757,9 @@ class Svg2ModExport( object ):
 
     def __init__(
         self,
-        svg2mod_import,
-        file_name,
-        center,
+        svg2mod_import = Svg2ModImport(),
+        file_name = None,
+        center = False,
         scale_factor = 1.0,
         precision = 20.0,
         use_mm = True,
@@ -577,7 +771,7 @@ class Svg2ModExport( object ):
             scale_factor *= 25.4 / float(dpi)
             use_mm = True
         else:
-            # PCBNew uses "decimil" (10K DPI);
+            # PCBNew uses decimal (10K DPI);
             scale_factor *= 10000.0 / float(dpi)
 
         self.imported = svg2mod_import
@@ -590,6 +784,24 @@ class Svg2ModExport( object ):
         self.convert_pads = pads
 
     #------------------------------------------------------------------------
+
+    def add_svg_element(self, elem : svg.Transformable, layer="F.SilkS"):
+        ''' This can be used to add a svg element
+        to a specific layer.
+        If the importer doesn't have a svg element
+        it will also create an empty Svg object.
+        '''
+        grp = svg.Group()
+        grp.name = layer
+        grp.items.append(elem)
+        try:
+            self.imported.svg.items.append(grp)
+        except AttributeError:
+            self.imported.svg = svg.Svg()
+            self.imported.svg.items.append(grp)
+
+    #------------------------------------------------------------------------
+
 
     def _calculate_translation( self ):
 
@@ -613,8 +825,8 @@ class Svg2ModExport( object ):
 
     #------------------------------------------------------------------------
 
-    # Find and keep only the layers of interest.
     def _prune( self, items = None ):
+        '''Find and keep only the layers of interest.'''
 
         if items is None:
 
@@ -652,11 +864,7 @@ class Svg2ModExport( object ):
                 self._write_items( item.items, layer, flip )
                 continue
 
-            elif (
-                    isinstance( item, svg.Path ) or
-                    isinstance( item, svg.Ellipse) or
-                    isinstance( item, svg.Rect )
-                ):
+            elif isinstance( item, (svg.Path, svg.Ellipse, svg.Rect, svg.Text)):
 
                 segments = [
                     PolygonSegment( segment )
@@ -666,25 +874,53 @@ class Svg2ModExport( object ):
                 ]
 
                 fill, stroke, stroke_width = self._get_fill_stroke( item )
+                fill = (False if layer == "Edge.Cuts" else fill)
 
                 for segment in segments:
                     segment.process( self, flip, fill )
 
                 if len( segments ) > 1:
-                    points = segments[ 0 ].inline( segments[ 1 : ] )
+                    for poly in segments:
+                        poly.calc_bbox()
+                    segments.sort(key=lambda v: svg.Segment(v.bbox[0], v.bbox[1]).length(), reverse=True)
+
+                    while len(segments) > 0:
+                        inlinable = [segments[0]]
+                        for seg in segments[1:]:
+                            if not inlinable[0].are_distinct(seg):
+                                append = True
+                                if len(inlinable) > 1:
+                                    for hole in inlinable[1:]:
+                                        if not hole.are_distinct(seg):
+                                            append = False
+                                            break
+                                if append: inlinable.append(seg)
+                        for poly in inlinable:
+                            segments.pop(segments.index(poly))
+                        if len(inlinable) > 1:
+                            points = inlinable[ 0 ].inline( inlinable[ 1 : ] )
+                        elif len(inlinable) > 0:
+                            points = inlinable[ 0 ].points
+
+                        logging.info( "  Writing {} with {} points".format(item.__class__.__name__, len( points ) ))
+
+                        self._write_polygon(
+                            points, layer, fill, stroke, stroke_width
+                        )
+                    continue
 
                 elif len( segments ) > 0:
                     points = segments[ 0 ].points
 
-                if len ( segments ) != 0:
+                if len ( segments ) == 1:
 
-                    logging.info( "  Writing polygon with {} points".format(len( points ) ))
-                    
+                    logging.info( "  Writing {} with {} points".format(item.__class__.__name__, len( points ) ))
+
                     self._write_polygon(
                         points, layer, fill, stroke, stroke_width
                     )
                 else:
-                    logging.info( "Skipping {} with 0 points".format(item.__class__.__name__))
+                    logging.info( "  Skipping {} with 0 points".format(item.__class__.__name__))
 
             else:
                 logging.warning( "Unsupported SVG element: {}".format(item.__class__.__name__))
@@ -705,10 +941,10 @@ class Svg2ModExport( object ):
         label_pen = 120
 
         if self.use_mm:
-            label_size = self._convert_decimil_to_mm( label_size )
-            label_pen = self._convert_decimil_to_mm( label_pen )
-            reference_y = min_point.y - self._convert_decimil_to_mm( label_offset )
-            value_y = max_point.y + self._convert_decimil_to_mm( label_offset )
+            label_size = self._convert_decimal_to_mm( label_size )
+            label_pen = self._convert_decimal_to_mm( label_pen )
+            reference_y = min_point.y - self._convert_decimal_to_mm( label_offset )
+            value_y = max_point.y + self._convert_decimal_to_mm( label_offset )
         else:
             reference_y = min_point.y - label_offset
             value_y = max_point.y + label_offset
@@ -762,6 +998,9 @@ class Svg2ModExport( object ):
     #------------------------------------------------------------------------
 
     def transform_point( self, point, flip = False ):
+        ''' Transform provided point by this
+        classes scale factor.
+        '''
 
         transformed_point = svg.Point(
             ( point.x + self.translation.x ) * self.scale_factor,
@@ -783,19 +1022,36 @@ class Svg2ModExport( object ):
 
     #------------------------------------------------------------------------
 
-    def write( self, cmdline ):
+    def write( self, cmdline="" ):
+        '''Write the kicad footprint file.
+        The value from the command line argument
+        is set in a comment in the header of the file.
+
+        If self.file_name is not null then this will
+        overwrite the target file with the data provided.
+        However if it is null then all data is written
+        to the string IO class (for same API as writing)
+        then dumped into self.raw_file_data before the
+        writer is closed.
+        '''
 
         self._prune()
 
         # Must come after pruning:
         self._calculate_translation()
 
-        logging.getLogger("unfiltered").info( "Writing module file: {}".format( self.file_name ) )
-        self.output_file = open( self.file_name, 'w' )
+        if self.file_name:
+            logging.getLogger("unfiltered").info( "Writing module file: {}".format( self.file_name ) )
+            self.output_file = open( self.file_name, 'w' )
+        else:
+            self.output_file = io.StringIO()
 
         self._write_library_intro(cmdline)
 
         self._write_modules()
+
+        if self.file_name is None:
+            self.raw_file_data = self.output_file.getvalue()
 
         self.output_file.close()
         self.output_file = None
@@ -806,6 +1062,9 @@ class Svg2ModExport( object ):
 #----------------------------------------------------------------------------
 
 class Svg2ModExportLegacy( Svg2ModExport ):
+    ''' A child of Svg2ModExport that implements
+    specific functionality for kicad legacy file types
+    '''
 
     layer_map = {
         #'inkscape-name' : [ kicad-front, kicad-back ],
@@ -898,23 +1157,19 @@ $EndINDEX
 # Converted using: {3}
 #
 """.format(
-    datetime.datetime.now().strftime( "%a %d %b %Y %I:%M:%S %p %Z" ),
-    units,
-    modules_list,
-    cmdline
-)
+                datetime.datetime.now().strftime( "%a %d %b %Y %I:%M:%S %p %Z" ),
+                units,
+                modules_list,
+                cmdline.replace("\\","\\\\")
+            )
         )
 
 
     #------------------------------------------------------------------------
 
     def _write_module_header(
-        self,
-        label_size,
-        label_pen,
-        reference_y,
-        value_y,
-        front,
+        self, label_size, label_pen,
+        reference_y, value_y, front,
     ):
 
         self.output_file.write( """$MODULE {0}
@@ -923,14 +1178,14 @@ Li {0}
 T0 0 {1} {2} {2} 0 {3} N I 21 "{0}"
 T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
 """.format(
-    self._get_module_name( front ),
-    reference_y,
-    label_size,
-    label_pen,
-    self.imported.module_value,
-    value_y,
-    15, # Seems necessary
-)
+                self._get_module_name( front ),
+                reference_y,
+                label_size,
+                label_pen,
+                self.imported.module_value,
+                value_y,
+                15, # Seems necessary
+            )
         )
 
 
@@ -984,7 +1239,7 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
 
         pen = 1
         if self.use_mm:
-            pen = self._convert_decimil_to_mm( pen )
+            pen = self._convert_decimal_to_mm( pen )
 
         self.output_file.write( "DP 0 0 0 0 {} {} {}\n".format(
             len( points ),
@@ -997,9 +1252,9 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
 
     def _write_polygon_point( self, point ):
 
-            self.output_file.write(
-                "Dl {} {}\n".format( point.x, point.y )
-            )
+        self.output_file.write(
+            "Dl {} {}\n".format( point.x, point.y )
+        )
 
 
     #------------------------------------------------------------------------
@@ -1019,6 +1274,10 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
 #----------------------------------------------------------------------------
 
 class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
+    ''' A Svg2Mod exporter class that reads some settings
+    from an already existing module and will append its
+    changes to the file.
+    '''
 
     #------------------------------------------------------------------------
 
@@ -1071,7 +1330,7 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
             if line[ : 6 ] == "$INDEX":
                 break
 
-            m = re.match( "Units[\s]+mm[\s]*", line )
+            m = re.match( r"Units[\s]+mm[\s]*", line )
             if m is not None:
                 use_mm = True
 
@@ -1109,15 +1368,6 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
                 raise Exception(
                     "Expected $EndLIBRARY: [{}]".format( line )
                 )
-
-        #print( "Pre-index:" )
-        #pprint( self.pre_index )
-
-        #print( "Post-index:" )
-        #pprint( self.post_index )
-
-        #print( "Loaded modules:" )
-        #pprint( self.loaded_modules )
 
         return use_mm
 
@@ -1246,6 +1496,10 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
 #----------------------------------------------------------------------------
 
 class Svg2ModExportPretty( Svg2ModExport ):
+    ''' This provides functionality for the
+    newer kicad "pretty" footprint file formats.
+    It is a child of Svg2ModExport.
+    '''
 
     layer_map = {
         #'inkscape-name' : kicad-name,
@@ -1294,13 +1548,13 @@ class Svg2ModExportPretty( Svg2ModExport ):
   (descr "{2}")
   (tags {3})
 """.format(
-    self.imported.module_name, #0
-    int( round( os.path.getctime( #1
-        self.imported.file_name
-    ) ) ),
-    "Converted using: {}".format( cmdline ), #2
-    "svg2mod", #3
-)
+                self.imported.module_name, #0
+                int( round( #1
+                    os.path.getctime( self.imported.file_name ) if self.imported.file_name else time.time()
+                ) ),
+                "Converted using: {}".format( cmdline.replace("\\", "\\\\") ), #2
+                "svg2mod", #3
+            )
         )
 
 
@@ -1314,12 +1568,8 @@ class Svg2ModExportPretty( Svg2ModExport ):
     #------------------------------------------------------------------------
 
     def _write_module_header(
-        self,
-        label_size,
-        label_pen,
-        reference_y,
-        value_y,
-        front,
+        self, label_size, label_pen,
+        reference_y, value_y, front,
     ):
         if front:
             side = "F"
@@ -1334,14 +1584,14 @@ class Svg2ModExportPretty( Svg2ModExport ):
     (effects (font (size {3} {3}) (thickness {4})))
   )""".format(
 
-    self._get_module_name(), #0
-    reference_y, #1
-    side, #2
-    label_size, #3
-    label_pen, #4
-    self.imported.module_value, #5
-    value_y, #6
-)
+                self._get_module_name(), #0
+                reference_y, #1
+                side, #2
+                label_size, #3
+                label_pen, #4
+                self.imported.module_value, #5
+                value_y, #6
+            )
         )
 
 
@@ -1449,11 +1699,11 @@ class Svg2ModExportPretty( Svg2ModExport ):
     (layer {})
     (width {})
   )""".format(
-    p.x, p.y,
-    q.x, q.y,
-    layer,
-    stroke_width,
-)
+                p.x, p.y,
+                q.x, q.y,
+                layer,
+                stroke_width,
+            )
         )
 
 
@@ -1462,6 +1712,9 @@ class Svg2ModExportPretty( Svg2ModExport ):
 #----------------------------------------------------------------------------
 
 def get_arguments():
+    ''' Return an instance of pythons argument parser
+    with all the command line functionalities arguments
+    '''
 
     parser = argparse.ArgumentParser(
         description = (
@@ -1469,15 +1722,14 @@ def get_arguments():
         )
     )
 
-    #------------------------------------------------------------------------
+    mux = parser.add_mutually_exclusive_group(required=True)
 
-    parser.add_argument(
+    mux.add_argument(
         '-i', '--input-file',
         type = str,
         dest = 'input_file_name',
         metavar = 'FILENAME',
-        help = "name of the SVG file",
-        required = True,
+        help = "Name of the SVG file",
     )
 
     parser.add_argument(
@@ -1485,7 +1737,7 @@ def get_arguments():
         type = str,
         dest = 'output_file_name',
         metavar = 'FILENAME',
-        help = "name of the module file",
+        help = "Name of the module file",
     )
 
     parser.add_argument(
@@ -1547,7 +1799,7 @@ def get_arguments():
         type = float,
         dest = 'scale_factor',
         metavar = 'FACTOR',
-        help = "scale paths by this factor",
+        help = "Scale paths by this factor",
         default = 1.0,
     )
 
@@ -1556,7 +1808,7 @@ def get_arguments():
         type = float,
         dest = 'precision',
         metavar = 'PRECISION',
-        help = "smoothness for approximating curves with line segments. Input is the approximate length for each line segment in SVG pixels (float)",
+        help = "Smoothness for approximating curves with line segments. Input is the approximate length for each line segment in SVG pixels (float)",
         default = 10.0,
     )
     parser.add_argument(
@@ -1565,7 +1817,7 @@ def get_arguments():
         dest = 'format',
         metavar = 'FORMAT',
         choices = [ 'legacy', 'pretty' ],
-        help = "output module file format (legacy|pretty)",
+        help = "Output module file format (legacy|pretty)",
         default = 'pretty',
     )
 
@@ -1574,7 +1826,7 @@ def get_arguments():
         type = str,
         dest = 'module_name',
         metavar = 'NAME',
-        help = "base name of the module",
+        help = "Base name of the module",
         default = "svg2mod",
     )
 
@@ -1583,8 +1835,8 @@ def get_arguments():
         type = str,
         dest = 'units',
         metavar = 'UNITS',
-        choices = [ 'decimil', 'mm' ],
-        help = "output units, if output format is legacy (decimil|mm)",
+        choices = [ 'decimal', 'mm' ],
+        help = "Output units, if output format is legacy (decimal|mm)",
         default = 'mm',
     )
 
@@ -1593,12 +1845,27 @@ def get_arguments():
         type = str,
         dest = 'module_value',
         metavar = 'VALUE',
-        help = "value of the module",
+        help = "Value of the module",
         default = "G***",
     )
 
-    return parser.parse_args(), parser
+    parser.add_argument(
+        '-df', '--default-font',
+        type = str,
+        dest = 'default_font',
+        help = "Default font to use if the target font in a text element cannot be found",
+    )
 
+    mux.add_argument(
+        '-lsf', '--list-fonts',
+        dest = 'list_fonts',
+        const = True,
+        default = False,
+        action = "store_const",
+        help = "List all fonts that can be found in common locations",
+    )
+
+    return parser.parse_args(), parser
 
     #------------------------------------------------------------------------
 

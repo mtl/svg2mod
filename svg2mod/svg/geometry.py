@@ -1,5 +1,5 @@
 # Copyright (C) 2013 -- CJlano < cjlano @ free.fr >
-# Copyright (C) 2021 -- svg2mod developers < github.com / svg2mod >
+# Copyright (C) 2021 -- svg2mod developers < GitHub.com / svg2mod >
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,9 +20,12 @@ This module contains all the geometric classes and functions not directly
 related to SVG parsing. It can be reused outside the scope of SVG.
 '''
 
-import math, numbers, operator
+import math
+import numbers
+import operator
 
 class Point:
+    '''Define a point as two floats accessible by x and y'''
     def __init__(self, x=None, y=None):
         '''A Point is defined either by a tuple/list of length 2 or
            by 2 coordinates
@@ -63,7 +66,7 @@ class Point:
         return Point(self.x + other.x, self.y + other.y)
 
     def __sub__(self, other):
-        '''Substract two Points.
+        '''Subtract two Points.
         >>> Point(1,2) - Point(3,2)
         (-2.000,0.000)
         '''
@@ -185,7 +188,7 @@ class Segment:
         # Vertical Segment => pdistance is the difference of abscissa
             return abs(self.start.x - p.x)
         else:
-        # That's 2-D perpendicular distance formulae (ref: Wikipedia)
+        # That's 2-D perpendicular distance formula (ref: Wikipedia)
             slope = s.y/s.x
             # intercept: Crossing with ordinate y-axis
             intercept = self.start.y - (slope * self.start.x)
@@ -193,6 +196,7 @@ class Segment:
 
 
     def bbox(self):
+        '''Return bounding box as ( Point(min), Point(max )'''
         xmin = min(self.start.x, self.end.x)
         xmax = max(self.start.x, self.end.x)
         ymin = min(self.start.y, self.end.y)
@@ -201,6 +205,7 @@ class Segment:
         return (Point(xmin,ymin),Point(xmax,ymax))
 
     def transform(self, matrix):
+        '''Transform start and end point by provided matrix'''
         self.start = matrix * self.start
         self.end = matrix * self.end
 
@@ -219,6 +224,7 @@ class Bezier:
                 ' : ' + ", ".join([str(x) for x in self.pts])
 
     def control_point(self, n):
+        '''Return Point at index n'''
         if n >= self.dimension:
             raise LookupError('Index is larger than Bezier curve dimension')
         else:
@@ -236,6 +242,7 @@ class Bezier:
         return l
 
     def bbox(self):
+        '''This returns the rough bounding box '''
         return self.rbbox()
 
     def rbbox(self):
@@ -249,8 +256,8 @@ class Bezier:
         return (Point(xmin,ymin), Point(xmax,ymax))
 
     def segments(self, precision=0):
-        '''Return a polyline approximation ("segments") of the Bezier curve
-           precision is the minimum significative length of a segment'''
+        '''Return a poly-line approximation ("segments") of the Bezier curve
+           precision is the minimum significant length of a segment'''
         segments = []
         # n is the number of Bezier points to draw according to precision
         if precision != 0:
@@ -287,16 +294,23 @@ class Bezier:
         return res[0]
 
     def transform(self, matrix):
+        '''Transform every point by the provided matrix'''
         self.pts = [matrix * x for x in self.pts]
 
 class MoveTo:
+    '''MoveTo class
+    This will create a move without creating a segment
+    to the destination point.
+    '''
     def __init__(self, dest):
         self.dest = dest
 
     def bbox(self):
+        '''This returns a single point bounding box. ( Point(destination), Point(destination) )'''
         return (self.dest, self.dest)
 
     def transform(self, matrix):
+        '''Transform the destination point by provided matrix'''
         self.dest = matrix * self.dest
 
 
@@ -312,7 +326,7 @@ def simplify_segment(segment, epsilon):
             key=operator.itemgetter(1))
 
     if maxDist > epsilon:
-        # Recursively call with segment splited in 2 on its furthest point
+        # Recursively call with segment split in 2 on its furthest point
         r1 = simplify_segment(segment[:index+1], epsilon)
         r2 = simplify_segment(segment[index:], epsilon)
         # Remove redundant 'middle' Point

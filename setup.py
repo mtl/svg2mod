@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+'''
+to install system wide use `pip install .`
+testing is done via `python setup.py test`
+'''
 
-import os
+import subprocess
 import setuptools
 
 
@@ -17,15 +21,21 @@ with open('README.md') as readme_file:
 tag = ""
 
 try:
-    tag = os.popen("git describe --tag")._stream.read().strip()
+    ps = subprocess.check_output(["git","describe","--tag"], stderr=subprocess.STDOUT)
+    tag = ps.decode('utf-8')
+    tag = tag.replace("-", ".dev", 1).replace("-", "+")
 except:
-    tag = "development"
+    tag = "0.dev0"
 
 requirements = [
+    "fonttools"
 ]
 
+setup_requirements = [
+	"pytest-runner", "pytest-pylint",
+]
 test_requirements = [
-    # TODO: put package test requirements here
+	"pytest", "pylint", "pyenchant",
 ]
 
 setup(
@@ -44,17 +54,18 @@ setup(
     package_data={'kipart': ['*.gif', '*.png']},
     scripts=[],
     install_requires=requirements,
-    license="CC0-1.0",
+    license="GPLV2",
     zip_safe=False,
     keywords='svg2mod, KiCAD, inkscape',
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
-        'License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication',
+        'LICENSE :: OSI APPROVED :: GNU GENERAL PUBLIC LICENSE V2 (GPLV2)',
         'Natural Language :: English',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.7',
     ],
-    test_suite='tests',
+	setup_requires=setup_requirements,
+    test_suite='test',
     tests_require=test_requirements
 )

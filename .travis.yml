@@ -3,17 +3,25 @@ jobs:
   - stage: unit tests
     os: linux
     language: python
+    python:
+      - "3.7"
+      - "3.8"
+      - "3.9"
+    before_install:
+      - sudo apt-get -y install --install-recommends python-enchant
+      - pip install ./ pylint pyenchant
     script:
-    - pip3 install ./ 
-    - svg2mod -i examples/svg2mod.svg -o output.mod -x -c -pads --name TEST --value VALUE -f 2 -p 1 --format legacy --units mm -d 300 --debug
-    - svg2mod -i examples/svg2mod.svg --debug
-    - svg2mod -i examples/svg2mod.svg --format legacy
-    - svg2mod -i examples/svg2mod.svg
+      - pylint --rcfile .linter/cleanup.rc svg2mod setup.py
+      - python setup.py test
+      - svg2mod -i examples/svg2mod.svg -o output.mod -x -c -pads --name TEST --value VALUE -f 2 -p 1 --format legacy --units mm -d 300 --debug
+      - svg2mod -i examples/svg2mod.svg --debug
+      - svg2mod -i examples/svg2mod.svg --format legacy
+      - svg2mod -i examples/svg2mod.svg
   - stage: deploy
     os: linux
     language: python
     script:
-    - python setup.py bdist_wheel sdist
+      - python setup.py bdist_wheel sdist
     deploy:
       provider: pypi
       username: "__token__"
