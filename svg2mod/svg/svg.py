@@ -1382,7 +1382,7 @@ loggingTools.configLogger(level=logging.INFO)
 # (classes must be defined before)
 
 svgClass = {}
-# Register all classes with attribute 'tag' in svgClass dict
+# Register all classes with attribute 'tag' in svgClass dictionary
 for name, cls in inspect.getmembers(sys.modules[__name__], inspect.isclass):
     tag = getattr(cls, 'tag', None)
     if tag:
