@@ -13,7 +13,7 @@ jobs:
     script:
       - pylint --rcfile .linter/cleanup.rc svg2mod setup.py
       - python setup.py test
-      - svg2mod -i examples/svg2mod.svg -o output.mod -x -c -pads --name TEST --value VALUE -f 2 -p 1 --format legacy --units mm -d 300 --debug
+      - svg2mod -i examples/svg2mod.svg -o output.mod -x -c -P --name TEST --value VALUE -f 2 -p 1 --format legacy --units mm -d 300 --debug
       - svg2mod -i examples/svg2mod.svg --debug
       - svg2mod -i examples/svg2mod.svg --format legacy
       - svg2mod -i examples/svg2mod.svg

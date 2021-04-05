@@ -1750,7 +1750,7 @@ def get_arguments():
     )
 
     parser.add_argument(
-        '-pads', '--convert-pads',
+        '-P', '--convert-pads',
         dest = 'convert_to_pads',
         action = 'store_const',
         const = True,
@@ -1850,14 +1850,14 @@ def get_arguments():
     )
 
     parser.add_argument(
-        '-df', '--default-font',
+        '-F', '--default-font',
         type = str,
         dest = 'default_font',
         help = "Default font to use if the target font in a text element cannot be found",
     )
 
     mux.add_argument(
-        '-lsf', '--list-fonts',
+        '-l', '--list-fonts',
         dest = 'list_fonts',
         const = True,
         default = False,
