@@ -26,36 +26,41 @@ Python 3
 ## Usage
 
 ```text
-usage: svg2mod [-h] -i FILENAME [-o FILENAME] [-c] [-pads] [-v] [--debug] [-x]
+usage: svg2mod [-h] [-i FILENAME] [-o FILENAME] [-c] [-P] [-v] [--debug] [-x]
                [-d DPI] [-f FACTOR] [-p PRECISION] [--format FORMAT]
-               [--name NAME] [--units UNITS] [--value VALUE]
+               [--name NAME] [--units UNITS] [--value VALUE] [-F DEFAULT_FONT]
+               [-l]
 
 Convert Inkscape SVG drawings to KiCad footprint modules.
 
 optional arguments:
   -h, --help            show this help message and exit
   -i FILENAME, --input-file FILENAME
-                        name of the SVG file
+                        Name of the SVG file
   -o FILENAME, --output-file FILENAME
-                        name of the module file
+                        Name of the module file
   -c, --center          Center the module to the center of the bounding box
-  -pads, --convert-pads
-                        Convert any artwork on Cu layers to pads
+  -P, --convert-pads    Convert any artwork on Cu layers to pads
   -v, --verbose         Print more verbose messages
   --debug               Print debug level messages
   -x, --exclude-hidden  Do not export hidden layers
   -d DPI, --dpi DPI     DPI of the SVG file (int)
   -f FACTOR, --factor FACTOR
-                        scale paths by this factor
+                        Scale paths by this factor
   -p PRECISION, --precision PRECISION
-                        smoothness for approximating curves with line segments
-                        (float)
-  --format FORMAT       output module file format (legacy|pretty)
+                        Smoothness for approximating curves with line
+                        segments. Input is the approximate length for each
+                        line segment in SVG pixels (float)
+  --format FORMAT       Output module file format (legacy|pretty)
   --name NAME, --module-name NAME
-                        base name of the module
-  --units UNITS         output units, if output format is legacy (decimil|mm)
+                        Base name of the module
+  --units UNITS         Output units, if output format is legacy (decimal|mm)
   --value VALUE, --module-value VALUE
-                        value of the module
+                        Value of the module
+  -F DEFAULT_FONT, --default-font DEFAULT_FONT
+                        Default font to use if the target font in a text
+                        element cannot be found
+  -l, --list-fonts      List all fonts that can be found in common locations```
 ```
 
 ## SVG Files
