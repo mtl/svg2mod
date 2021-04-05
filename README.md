@@ -61,6 +61,7 @@ optional arguments:
                         Default font to use if the target font in a text
                         element cannot be found
   -l, --list-fonts      List all fonts that can be found in common locations```
+```
 
 ## SVG Files
 
