@@ -79,7 +79,7 @@ def main():
                 fnt_text += f" {styles},"
             fnt_text = fnt_text.strip(",")
             logging.getLogger("unfiltered").info(fnt_text)
-        sys.exit(1)
+        sys.exit(0)
     if args.default_font:
         svg.Text.default_font = args.default_font
 
