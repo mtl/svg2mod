@@ -1281,8 +1281,8 @@ class Text(Transformable):
                 offset.x += (scale*glf.width)
 
             self.paths.append(path)
-        #if auto_transform:
-        #    self.transform()
+        if auto_transform:
+            self.transform()
 
     def bbox(self) -> Tuple[Point, Point]:
         '''Find the bounding box of all the paths that make

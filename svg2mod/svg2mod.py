@@ -236,10 +236,10 @@ class LineSegment:
         endpoints with the current segment
         '''
 
-        if self.q.x == segment.p.x and self.q.y == segment.p.y: return True
-        if self.q.x == segment.q.x and self.q.y == segment.q.y: return True
-        if self.p.x == segment.p.x and self.p.y == segment.p.y: return True
-        if self.p.x == segment.q.x and self.p.y == segment.q.y: return True
+        if self.q == segment.p: return True
+        if self.q == segment.q: return True
+        if self.p == segment.p: return True
+        if self.p == segment.q: return True
         return False
 
 
@@ -313,13 +313,23 @@ class PolygonSegment:
     points between a segment and it's self as well as
     identify if another polygon rests inside of the
     closed area of it's self.
+
+    When initializing this class it will round all
+    points to the specified number of decimal points,
+    default 10, and remove duplicate points in a row.
     '''
 
     #------------------------------------------------------------------------
 
-    def __init__( self, points:List):
+    def __init__( self, points:List, ndigits=10):
 
-        self.points = points
+        self.points = [points.pop(0).round(ndigits)]
+
+        for point in points:
+            p = point.round(ndigits)
+            if self.points[-1] != p:
+                self.points.append(p)
+
 
         if len( points ) < 3:
             logging.warning("Warning: Path segment has only {} points (not a polygon?)".format(len( points )))
@@ -440,6 +450,10 @@ class PolygonSegment:
 
         logging.debug( "  Inlining {} segments...".format( len( segments ) ) )
 
+        segments.sort(key=lambda h:
+            svg.Segment(self.points[0], h.bbox[0]).length()
+        )
+
         all_segments = segments[ : ] + [ self ]
         insertions = []
 
@@ -512,7 +526,7 @@ class PolygonSegment:
 
         if count_intersections:
             return intersections
-        if get_points:
+        if get_points and not check_connects:
             return ()
         return False
 
@@ -1022,7 +1036,7 @@ class Svg2ModExport(ABC):
 
     #------------------------------------------------------------------------
 
-    def write( self, cmdline="" ):
+    def write( self, cmdline="scripting" ):
         '''Write the kicad footprint file.
         The value from the command line argument
         is set in a comment in the header of the file.

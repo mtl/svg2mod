@@ -17,6 +17,7 @@ jobs:
       - svg2mod -i examples/svg2mod.svg --debug
       - svg2mod -i examples/svg2mod.svg --format legacy
       - svg2mod -i examples/svg2mod.svg
+      - svg2mod -l
   - stage: deploy
     os: linux
     language: python
