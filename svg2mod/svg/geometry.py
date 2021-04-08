@@ -128,6 +128,10 @@ class Point:
         new_y = ((self.x-x) * angle.sin) + ((self.y-y) * angle.cos) + y
         return Point(new_x,new_y)
 
+    def round(self, ndigits=None):
+        '''Round x and y to number of decimal points'''
+        return Point( round(self.x, ndigits), round(self.y, ndigits))
+
 
 class Angle:
     '''Define a trigonometric angle [of a vector] '''
