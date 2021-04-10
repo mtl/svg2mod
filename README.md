@@ -13,7 +13,8 @@ It includes a modified version of [cjlano's python SVG parser and drawing module
 
 ## Requirements
 
-Python 3
+* Python 3
+* [fonttools](https://pypi.org/project/fonttools/)
 
 ## Installation
 
