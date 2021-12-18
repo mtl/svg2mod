@@ -632,7 +632,7 @@ class Svg2ModImport:
 
             if item.hidden :
                 logging.warning("Ignoring hidden SVG layer: {}".format( item.name ) )
-            elif item.name is not "":
+            elif item.name != "":
                 self.svg.items.append( item )
 
             if(item.items):
@@ -858,7 +858,7 @@ class Svg2ModExport(ABC):
 
             for name in self.layers.keys():
                 #if re.search( name, item.name, re.I ):
-                if name == item.name and item.name is not "":
+                if name == item.name and item.name != "":
                     logging.getLogger("unfiltered").info( "Found SVG layer: {}".format( item.name ) )
 
                     self.imported.svg.items.append( item )

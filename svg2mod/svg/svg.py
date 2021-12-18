@@ -36,8 +36,7 @@ import logging
 import inspect
 
 from fontTools.ttLib import ttFont
-from fontTools.pens.recordingPen import RecordingPen
-from fontTools.pens.basePen import decomposeQuadraticSegment
+from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.misc import loggingTools
 
 from .geometry import Point,Angle,Segment,Bezier,MoveTo,simplify_segment
@@ -1105,6 +1104,7 @@ class Text(Transformable):
         }
         if self.style is not None:
             for style in self.style.split(";"):
+                if style.find(":") == -1: continue
                 nv = style.split(":")
                 name = nv[ 0 ].strip()
                 value = nv[ 1 ].strip()
@@ -1226,6 +1226,7 @@ class Text(Transformable):
         is never called elsewhere.
         '''
         self.paths = []
+        if not self.text: return
         prev_origin = self.text[0][1].origin
 
         offset = Point(prev_origin.x, prev_origin.y)
@@ -1246,38 +1247,26 @@ class Text(Transformable):
             for char in text:
 
                 pathbuf = ""
-                pen = RecordingPen()
                 try: glf = ttf.getGlyphSet()[ttf.getBestCmap()[ord(char)]]
                 except KeyError:
                     logging.warning(f"Unsuported character in <text> element \"{char}\"")
                     #txt = txt.replace(char, "")
                     continue
 
+                pen = SVGPathPen(ttf.getGlyphSet)
                 glf.draw(pen)
-                for command in pen.value:
-                    pts = list(command[1])
-                    for ptInd in range(len(pts)):
-                        pts[ptInd] = (pts[ptInd][0], offset.y - pts[ptInd][1])
-                    if command[0] == "moveTo" or command[0] == "lineTo":
-                        pathbuf += command[0][0].upper() + f" {pts[0][0]},{pts[0][1]} "
-                    elif command[0] == "qCurveTo":
-                        pts = decomposeQuadraticSegment(command[1])
-                        for pt in pts:
-                            pathbuf += "Q {},{} {},{} ".format(
-                                pt[0][0], offset.y - pt[0][1],
-                                pt[1][0], offset.y - pt[1][1]
-                            )
-                    elif command[0] == "closePath":
-                        pathbuf += "Z"
 
-                path.append(Path())
-                path[-1].parse(pathbuf)
-                # Apply the scaling then the translation
-                translate = Matrix([1,0,0,1,offset.x,-size+attrib.origin.y]) * Matrix([scale,0,0,scale,0,0])
-                # This queues the translations until .transform() is called
-                path[-1].matrix =  translate * path[-1].matrix
-                #path[-1].get_transformations({"transform":"translate({},{}) scale({})".format(
-                #    offset.x, -size+attrib.origin.y, scale)})
+                for cmd in pen._commands:
+                    pathbuf += cmd + ' '
+
+                if len(pathbuf) > 0:
+                    path.append(Path())
+                    path[-1].parse(pathbuf)
+                    # Apply the scaling then the translation
+                    translate = Matrix([1,0,0,-1,offset.x,size+attrib.origin.y]) * Matrix([scale,0,0,scale,0,0])
+                    # This queues the translations until .transform() is called
+                    path[-1].matrix =  translate * path[-1].matrix
+
                 offset.x += (scale*glf.width)
 
             self.paths.append(path)

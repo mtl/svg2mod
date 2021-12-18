@@ -22,7 +22,7 @@ tag = ""
 
 try:
     ps = subprocess.check_output(["git","describe","--tag"], stderr=subprocess.STDOUT)
-    tag = ps.decode('utf-8')
+    tag = ps.decode('utf-8').strip()
     tag = tag.replace("-", ".dev", 1).replace("-", "+")
 except:
     tag = "0.dev0"
