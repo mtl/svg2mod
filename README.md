@@ -1,9 +1,8 @@
 # svg2mod
-
-[![Build Status](https://travis-ci.com/svg2mod/svg2mod.svg?branch=main)](https://travis-ci.com/svg2mod/svg2mod)
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/svg2mod/svg2mod/Python%20lint%20and%20test?logo=github)](https://github.com/svg2mod/svg2mod/actions/workflows/python-package.yml)
 [![GitHub last commit](https://img.shields.io/github/last-commit/svg2mod/svg2mod)](https://github.com/svg2mod/svg2mod/commits/main)
 
-[![PyPI - License](https://img.shields.io/pypi/l/svg2mod?color=black)](https://pypi.org/project/svg2mod/)
+[![PyPI - License](https://img.shields.io/pypi/l/svg2mod?color=purple)](https://pypi.org/project/svg2mod/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/svg2mod)](https://pypi.org/project/svg2mod/)
 [![PyPI](https://img.shields.io/pypi/v/svg2mod?color=informational&label=version)](https://pypi.org/project/svg2mod/)
 
