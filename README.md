@@ -8,7 +8,7 @@
 
 This is a program / library to convert SVG drawings to KiCad footprint module files.
 
-It includes a modified version of [cjlano's python SVG parser and drawing module](https://github.com/cjlano/svg) to interpret drawings and approximate curves using straight line segments.  Module files can be output in KiCad's legacy or s-expression (i.e., pretty) formats.
+It includes a modified version of [cjlano's python SVG parser and drawing module](https://github.com/cjlano/svg) to interpret drawings and approximate curves using straight line segments. Module files can be output in KiCad's legacy or s-expression (i.e., pretty) formats.
 
 ## Requirements
 
@@ -106,3 +106,10 @@ This supports the layers listed below. They are the same in inkscape and kicad:
 | B.CrtYd          | --           | Yes          |
 
 Note: If you have a layer "F.Cu", all of its sub-layers will be treated as "F.Cu" regardless of their names.
+
+## Showcase
+
+We'd love to see the amazing projects that use svg2mod.
+
+If you have a project you are proud of please post about it on our
+[github discussions board](https://github.com/svg2mod/svg2mod/discussions/categories/show-and-tell)
