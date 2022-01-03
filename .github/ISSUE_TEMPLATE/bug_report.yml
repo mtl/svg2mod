@@ -26,7 +26,7 @@ body:
     validations:
       required: true
     attributes:
-      label: Version of svg2mod
+      label: Version
       description: |
         The version of svg2mod you are using.
 
@@ -57,5 +57,5 @@ body:
     attributes:
       label: Sample file and additional information
       description: |
-        __Please attach a sample file__ and
+        __Please attach a sample file__ that will trigger the issue and
         if you have any additional information for us, use the field below.
