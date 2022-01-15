@@ -1,10 +1,13 @@
 # svg2mod
-[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/svg2mod/svg2mod/Python%20lint%20and%20test?logo=github)](https://github.com/svg2mod/svg2mod/actions/workflows/python-package.yml)
-[![GitHub last commit](https://img.shields.io/github/last-commit/svg2mod/svg2mod)](https://github.com/svg2mod/svg2mod/commits/main)
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/svg2mod/svg2mod/Python%20lint%20and%20test?logo=github&style=for-the-badge)](https://github.com/svg2mod/svg2mod/actions/workflows/python-package.yml)
+[![GitHub last commit](https://img.shields.io/github/last-commit/svg2mod/svg2mod?style=for-the-badge)](https://github.com/svg2mod/svg2mod/commits/main)
 
-[![PyPI - License](https://img.shields.io/pypi/l/svg2mod?color=purple)](https://pypi.org/project/svg2mod/)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/svg2mod)](https://pypi.org/project/svg2mod/)
-[![PyPI](https://img.shields.io/pypi/v/svg2mod?color=informational&label=version)](https://pypi.org/project/svg2mod/)
+[![PyPI](https://img.shields.io/pypi/v/svg2mod?color=informational&label=version&style=for-the-badge)](https://pypi.org/project/svg2mod/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/svg2mod?style=for-the-badge)](https://pypi.org/project/svg2mod/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/svg2mod?logo=python&logoColor=white&style=for-the-badge)](https://pypi.org/project/svg2mod/)
+
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/sodium-hydrogen?logo=github&style=for-the-badge)](https://github.com/sponsors/Sodium-Hydrogen)
+[![PyPI - License](https://img.shields.io/pypi/l/svg2mod?color=purple&style=for-the-badge)](https://pypi.org/project/svg2mod/)
 
 This is a program / library to convert SVG drawings to KiCad footprint module files.
 
@@ -24,7 +27,9 @@ It includes a modified version of [cjlano's python SVG parser and drawing module
 We'd love to see the amazing projects that use svg2mod.
 
 If you have a project you are proud of please post about it on our
-[github discussions board](https://github.com/svg2mod/svg2mod/discussions/categories/show-and-tell)
+[github discussions board ](https://github.com/svg2mod/svg2mod/discussions/categories/show-and-tell)
+
+[![GitHub Discussions](https://img.shields.io/github/discussions/svg2mod/svg2mod?logo=github&style=for-the-badge)](https://github.com/svg2mod/svg2mod/discussions/categories/show-and-tell)
 
 ## Example
 
