@@ -224,14 +224,14 @@ class LineSegment:
 
     @staticmethod
     def vertical_intersection(p: svg.Point, q: svg.Point, r: float) -> svg.Point:
-        '''This is used for the inlining algorithm
+        '''This is used for the in-lining algorithm
         it finds a point on a line p -> q where x = r
         '''
         if p.x == q.x:
             return min([p,q], key=lambda v: v.y)
         if r == p.x: return p
         if r == q.x: return q
-        return svg.Point(r, (p.y-q.y)*(r-q.x)/(p.x-q.x)+q.y) 
+        return svg.Point(r, (p.y-q.y)*(r-q.x)/(p.x-q.x)+q.y)
 
 
     #------------------------------------------------------------------------
@@ -255,9 +255,17 @@ class LineSegment:
         if self.p == segment.q: return True
         return False
 
+    #------------------------------------------------------------------------
+
+    def on_line(self, point: svg.Point) -> bool:
+        '''Returns true if the point is on the line.
+            Adapted from:
+            https://stackoverflow.com/questions/36487156/javascript-determine-if-a-point-resides-above-or-below-a-line-defined-by-two-poi
+        '''
+        return not (self.p.x-self.q.x)*(point.y-self.q.y) - (self.p.y-self.q.y)*(point.x-self.q.x)
 
     #------------------------------------------------------------------------
-    
+
     def intersects( self, segment: 'LineSegment' ) -> bool:
         """ Return true if line segments 'p1q1' and 'p2q2' intersect.
             Adapted from:
@@ -346,7 +354,7 @@ class PolygonSegment:
 
 
     #------------------------------------------------------------------------
-    
+
     def _set_points(self, points: List[svg.Point]):
         self.points = points[:]
 
@@ -468,7 +476,8 @@ class PolygonSegment:
 
         hole_segment = LineSegment()
 
-        intersections = [] if get_points else 0
+        intersections = 0
+        intersect_segs = []
 
         # Check each segment of other hole for intersection:
         for point in self.points:
@@ -484,18 +493,17 @@ class PolygonSegment:
 
                     if count_intersections:
                         if get_points:
-                            intersections.append((hole_segment.p, hole_segment.q))
+                            intersect_segs.append((hole_segment.p, hole_segment.q))
                         else:
-                            intersections += 1
-                        # If line_segment passes through a point this prevents a second false positive
-                        hole_segment.q = None
+                            # If line_segment passes through a point this prevents a second false positive
+                            intersections += 0 if line_segment.on_line(hole_segment.q) else 1
                     elif get_points:
                         return hole_segment.p, hole_segment.q
                     else:
                         return True
 
         if count_intersections:
-            return intersections
+            return intersect_segs if get_points else intersections
         if get_points and not check_connects:
             return ()
         return False

@@ -62,6 +62,11 @@ unit_convert = {
         '%' :  1 / 100.0   # 1 percent
         }
 
+# Logging spammed 'Unable to find font because no font was specified.'
+# this allows it to only print the error once before muting it for that run.
+_font_warning_sent = False
+
+
 class Transformable:
     '''Abstract class for objects that can be geometrically drawn & transformed'''
     def __init__(self, elt=None):
@@ -1150,7 +1155,10 @@ class Text(Transformable):
         '''
         if self.font_family is None:
             if Text.default_font is None:
-                logging.error("Unable to find font because no font was specified.")
+                global _font_warning_sent
+                if not _font_warning_sent:
+                    logging.error("Unable to find font because no font was specified.")
+                    _font_warning_sent = True
                 return None
             self.font_family = Text.default_font
         fonts = [fnt.strip().strip("'") for fnt in self.font_family.split(",")]
@@ -1359,6 +1367,7 @@ class JSONEncoder(json.JSONEncoder):
 
 # Make fontTools more quiet
 loggingTools.configLogger(level=logging.INFO)
+
 
 # SVG tag handler classes are initialized here
 # (classes must be defined before)
