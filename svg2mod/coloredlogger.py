@@ -1,4 +1,4 @@
-# Copyright (C) 2021 -- svg2mod developers < GitHub.com / svg2mod >
+# Copyright (C) 2022 -- svg2mod developers < GitHub.com / svg2mod >
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

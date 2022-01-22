@@ -1,7 +1,7 @@
 # SVG parser in Python
 
 # Copyright (C) 2013 -- CJlano < cjlano @ free.fr >
-# Copyright (C) 2021 -- svg2mod developers < GitHub.com / svg2mod >
+# Copyright (C) 2022 -- svg2mod developers < GitHub.com / svg2mod >
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -277,8 +277,7 @@ class Svg(Transformable):
         t = self.root.find(svg_ns + 'title')
         if t is not None:
             return t
-        else:
-            return os.path.splitext(os.path.basename(self.filename))[0]
+        return os.path.splitext(os.path.basename(self.filename))[0]
 
     def json(self):
         '''Return a dictionary of children items'''
@@ -381,13 +380,12 @@ class Matrix:
                     + self.vect[5]
             return Matrix([a, b, c, d, e, f])
 
-        elif isinstance(other, Point):
+        if isinstance(other, Point):
             x = other.x * self.vect[0] + other.y * self.vect[2] + self.vect[4]
             y = other.x * self.vect[1] + other.y * self.vect[3] + self.vect[5]
             return Point(x,y)
 
-        else:
-            return NotImplemented
+        return NotImplemented
 
     def __str__(self):
         return str(self.vect)
@@ -398,6 +396,22 @@ class Matrix:
     def ylength(self, y):
         '''y scale of vector'''
         return y * self.vect[3]
+    def xscale(self):
+        '''Return the rotated x scalar value'''
+        return self.vect[0]/abs(self.vect[0]) * math.sqrt(self.vect[0]**2 + self.vect[2]**2)
+    def yscale(self):
+        '''Return the rotated x scalar value'''
+        return self.vect[3]/abs(self.vect[3]) * math.sqrt(self.vect[1]**2 + self.vect[3]**2)
+    def rot(self):
+        '''Return the angle of rotation from the matrix.
+
+        https://math.stackexchange.com/questions/13150/extracting-rotation-scale-values-from-2d-transformation-matrix
+        '''
+        if self.vect[0] != 0:
+            return Angle(math.atan2(-self.vect[2], self.vect[0]))
+        if self.vect[3] != 0:
+            return Angle(math.atan2(self.vect[1], self.vect[3]))
+        return 0
 
 
 
@@ -639,12 +653,15 @@ class Ellipse(Transformable):
         else:
             matrix *= self.matrix
         self.center = matrix * self.center
-        self.rx = matrix.xlength(self.rx)
-        self.ry = matrix.ylength(self.ry)
+        self.rx = matrix.xscale()*self.rx
+        self.ry = matrix.yscale()*self.ry
+        self.rotation += math.degrees(matrix.rot().angle)
+        self.matrix= matrix
 
     def P(self, t) -> Point:
-        '''Return a Point on the Ellipse for t in [0..1] or % from angle 0 to the full circle'''
-        #TODO change point cords if rotation is set
+        '''Return a Point on the Ellipse for t in [0..1] or % from angle 0 to the full circle.
+        Rotation is not handled in this function.
+        '''
         x = self.center.x + self.rx * math.cos(2 * math.pi * t)
         y = self.center.y + self.ry * math.sin(2 * math.pi * t)
         return Point(x,y)
@@ -667,10 +684,10 @@ class Ellipse(Transformable):
             p.sort(key=operator.itemgetter(0))
             d = Segment(p[0][1],p[1][1]).length()
 
-        ret = [x.rot(math.radians(self.rotation), x=self.center.x, y=self.center.y) for t,x in p]
+        ret = [x.rot(math.radians(self.rotation), x=self.center.x, y=self.center.y) for __,x in p]
         return [ret]
 
-    def simplify(self, precision):
+    def simplify(self, __):
         '''Return self because a 3 point representation is already simple'''
         return self
 
@@ -829,6 +846,10 @@ class Arc(Ellipse):
         elif self.sweep_flag and self.angles[1] < self.angles[0]:
             self.angles[1] += 2*math.pi
 
+    def transform(self, matrix=None):
+        super().transform(matrix)
+        self.end_pts[0] = self.matrix * self.end_pts[0]
+        self.end_pts[1] = self.matrix * self.end_pts[1]
 
     def segments(self, precision=0) -> List[Segment]:
         '''This returns segments as expected by the
@@ -840,10 +861,10 @@ class Arc(Ellipse):
 
     def P(self, t) -> Point:
         '''Return a Point on the Arc for t in [0..1] where t is the % from
-        the start angle to the end angle
+        the start angle to the end angle.
+
+        Final angle transformation is handled in Ellipse.segments
         '''
-        #TODO change point cords if rotation is set
-        # the angles are set in the calculate_center function
         x = self.center.x + self.rx * math.cos(((self.angles[1] - self.angles[0]) * t) + self.angles[0])
         y = self.center.y + self.ry * math.sin(((self.angles[1] - self.angles[0]) * t) + self.angles[0])
         return Point(x,y)
@@ -867,7 +888,7 @@ class Circle(Ellipse):
     def __repr__(self):
         return '<Circle ' + self.id + '>'
 
-class Rect(Transformable):
+class Rect(Path):
     '''SVG <rect> tag handler
     This decompiles a rectangle svg xml element into
     essentially a path with 4 segments.
@@ -882,62 +903,34 @@ class Rect(Transformable):
     def __init__(self, elt=None):
         Transformable.__init__(self, elt)
         if elt is not None:
-            self.P1 = Point(self.xlength(elt.get('x')),
-                            self.ylength(elt.get('y')))
-
-            self.P2 = Point(self.P1.x + self.xlength(elt.get('width')),
-                            self.P1.y + self.ylength(elt.get('height')))
             self.style = elt.get('style')
-            if (elt.get('rx') or elt.get('ry')):
-                logging.warning("Unsupported corner radius on rect.")
+            p = Point(self.xlength(elt.get('x')),
+                            self.ylength(elt.get('y')))
+            width = self.xlength(elt.get("width"))
+            height = self.xlength(elt.get("height"))
+
+            rx = self.xlength(elt.get('rx'))
+            ry = self.xlength(elt.get('ry'))
+            if not rx: rx = ry if ry else 0
+            if not ry: ry = rx if rx else 0
+            if rx or ry:
+                cmd = f'''M{p.x+rx} {p.y} a{rx} {ry} 0 0 0 {-rx} {ry} v{height-(ry*2)}
+                a{rx} {ry} 0 0 0 {rx} {ry}   h{width-(rx*2)}
+                a{rx} {ry} 0 0 0 {rx} {-ry}  v{-(height-(ry*2))}
+                a{rx} {ry} 0 0 0 {-rx} {-ry} h{-(width-(rx*2))} z'''
+            else:
+                cmd = f'M{p.x},{p.y}v{height}h{width}v{-height}h{-width}'
+
+            self.p = p
+            self.width = width
+            self.height = height
+            self.rx = rx
+            self.ry = ry
+
+            self.parse(cmd)
 
     def __repr__(self):
         return '<Rect ' + self.id + '>'
-
-    def bbox(self) -> Tuple[Point, Point]:
-        '''Bounding box'''
-        xmin = min([p.x for p in (self.P1, self.P2)])
-        xmax = max([p.x for p in (self.P1, self.P2)])
-        ymin = min([p.y for p in (self.P1, self.P2)])
-        ymax = max([p.y for p in (self.P1, self.P2)])
-
-        return (Point(xmin,ymin), Point(xmax,ymax))
-
-    def transform(self, matrix=None):
-        '''Apply the provided matrix. Default (None)
-        If no matrix is supplied then recursively apply
-        it's already existing matrix to all items.
-        '''
-        if matrix is None:
-            matrix = self.matrix
-        else:
-            matrix *= self.matrix
-        self.P1 = matrix * self.P1
-        self.P2 = matrix * self.P2
-
-    def segments(self, precision=0) -> List[Segment]:
-        '''A rectangle is built with a segment going thru 4 points'''
-        ret = []
-        Pa, Pb = Point(0,0),Point(0,0)
-        if self.rotation % 90 == 0:
-            Pa = Point(self.P1.x, self.P2.y)
-            Pb = Point(self.P2.x, self.P1.y)
-        else:
-            # TODO use built-in rotation function
-            sa = math.sin(math.radians(self.rotation)) / math.cos(math.radians(self.rotation))
-            sb = -1 / sa
-            ba = -sa * self.P1.x + self.P1.y
-            bb = -sb * self.P2.x + self.P2.y
-            x = (ba-bb) / (sb-sa)
-            Pa = Point(x, sa * x + ba)
-            bb = -sb * self.P1.x + self.P1.y
-            ba = -sa * self.P2.x + self.P2.y
-            x = (ba-bb) / (sb-sa)
-            Pb = Point(x, sa * x + ba)
-
-        ret.append([self.P1, Pa, self.P2, Pb, self.P1])
-        return ret
-
 
 class Line(Transformable):
     '''SVG <line> tag handler
@@ -968,7 +961,7 @@ class Line(Transformable):
 
         return (Point(xmin,ymin), Point(xmax,ymax))
 
-    def transform(self, matrix):
+    def transform(self, matrix=None):
         '''Apply the provided matrix. Default (None)
         If no matrix is supplied then recursively apply
         it's already existing matrix to all items.
@@ -981,7 +974,7 @@ class Line(Transformable):
         self.P2 = matrix * self.P2
         self.segment = Segment(self.P1, self.P2)
 
-    def segments(self, precision=0) -> List[Segment]:
+    def segments(self, __=0) -> List[Segment]:
         '''Return the segment of the line'''
         return [self.segment.segments()]
 
@@ -1140,7 +1133,7 @@ class Text(Transformable):
             if elt.tail is not None:
                 parent.text.append((elt.tail, parent))
 
-        del(self.font_configs)
+        del self.font_configs
 
 
     def find_font_file(self):
