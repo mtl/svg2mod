@@ -95,30 +95,30 @@ svg2mod expects images saved in the uncompressed Inkscape SVG (i.e., not "plain 
 
 This supports the layers listed below. They are the same in inkscape and kicad:
 
-| KiCad layer(s)         | KiCad legacy | KiCad pretty |
-|:----------------------:|:------------:|:------------:|
-| F.Cu [^1]              | Yes          | Yes          |
-| B.Cu [^1]              | Yes          | Yes          |
-| F.Adhes                | Yes          | Yes          |
-| B.Adhes                | Yes          | Yes          |
-| F.Paste                | Yes          | Yes          |
-| B.Paste                | Yes          | Yes          |
-| F.SilkS                | Yes          | Yes          |
-| B.SilkS                | Yes          | Yes          |
-| F.Mask                 | Yes          | Yes          |
-| B.Mask                 | Yes          | Yes          |
-| Dwgs.User              | Yes          | Yes          |
-| Cmts.User              | Yes          | Yes          |
-| Eco1.User              | Yes          | Yes          |
-| Eco2.User              | Yes          | Yes          |
-| Edge.Cuts              | Yes          | Yes          |
-| F.Fab                  | --           | Yes          |
-| B.Fab                  | --           | Yes          |
-| F.CrtYd                | --           | Yes          |
-| B.CrtYd                | --           | Yes          |
-| Drill.Cu [^1]          | --           | Yes          |
-| Drill.Mech [^1]        | --           | Yes          |
-| *.Keepout [^1][^2][^3] | --           | Yes          |
+| KiCad layer(s)           | KiCad legacy | KiCad pretty |
+|:------------------------:|:------------:|:------------:|
+| F.Cu [^1]                | Yes          | Yes          |
+| B.Cu [^1]                | Yes          | Yes          |
+| F.Adhes                  | Yes          | Yes          |
+| B.Adhes                  | Yes          | Yes          |
+| F.Paste                  | Yes          | Yes          |
+| B.Paste                  | Yes          | Yes          |
+| F.SilkS                  | Yes          | Yes          |
+| B.SilkS                  | Yes          | Yes          |
+| F.Mask                   | Yes          | Yes          |
+| B.Mask                   | Yes          | Yes          |
+| Dwgs.User                | Yes          | Yes          |
+| Cmts.User                | Yes          | Yes          |
+| Eco1.User                | Yes          | Yes          |
+| Eco2.User                | Yes          | Yes          |
+| Edge.Cuts                | Yes          | Yes          |
+| F.Fab                    | --           | Yes          |
+| B.Fab                    | --           | Yes          |
+| F.CrtYd                  | --           | Yes          |
+| B.CrtYd                  | --           | Yes          |
+| Drill.Cu [^1] [^2]       | --           | Yes          |
+| Drill.Mech [^1] [^2]     | --           | Yes          |
+| *.Keepout [^1] [^3] [^4] | --           | Yes          |
 
 Note: If you have a layer `F.Cu`, all of its sub-layers will be treated as `F.Cu` regardless of their names.
 
@@ -162,8 +162,10 @@ Supported Arguments:
 
 [^1]: These layers can have arguments when svg2mod is in pretty mode
 
-[^2]: Only works in Kicad versions >= v6.
+[^2]: Drills can only be svg circle objects. The stroke width in `Drill.Cu` is the pad size and the fill is the drill size.
 
-[^3]: The * can be { *, F, B, I } or any combination like FB or BI. These options are for Front, Back, and Internal.
+[^3]: Only works in Kicad versions >= v6.
+
+[^4]: The * can be { *, F, B, I } or any combination like FB or BI. These options are for Front, Back, and Internal.
 
 
