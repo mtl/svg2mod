@@ -19,6 +19,7 @@ Helper classes to combine and calculate the points
 from a svg object into a single continuous line
 '''
 
+import copy
 import logging
 from typing import List, Tuple
 
@@ -294,7 +295,8 @@ class PolygonSegment:
             if insertion is not None:
                 insertions.append( insertion )
 
-        points = self.points[ : ]
+        # Prevent returned points from affecting original object
+        points = copy.deepcopy(self.points)
 
         for insertion in insertions:
 
@@ -305,9 +307,11 @@ class PolygonSegment:
                 points[ ip ].x == hole[ 0 ].x and
                 points[ ip ].y == hole[ 0 ].y
             ):
-                points = points[:ip+1] + hole[ 1 : -1 ] + points[ip:]
+                # The point at the insertion point is duplicated so any action on that will affect both
+                points = points[:ip] + [copy.copy(points[ip])] + hole[ 1 : -1 ] + points[ip:]
             else:
-                points = points[:ip+1] + hole + points[ip:]
+                # The point at the insertion point is duplicated so any action on that will affect both
+                points = points[:ip] + [copy.copy(points[ip])] + hole + points[ip:]
 
         return points
 

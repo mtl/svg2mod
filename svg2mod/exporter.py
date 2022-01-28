@@ -36,6 +36,7 @@ from svg2mod.svg2mod import PolygonSegment
 #----------------------------------------------------------------------------
 
 DEFAULT_DPI = 96 # 96 as of Inkscape 0.92
+MINIMUM_SIZE = 1e-5 # Minimum size kicad will render
 
 #----------------------------------------------------------------------------
 
@@ -123,6 +124,8 @@ class Svg2ModExport(ABC):
             # Give a default stroke width?
             stroke_width = self._convert_decimal_to_mm( 1 ) if self.use_mm else 1
 
+        if stroke_width is None:
+            stroke_width = 0
 
 
         return fill, stroke, stroke_width
@@ -229,7 +232,7 @@ class Svg2ModExport(ABC):
 
             for name in self.layers.keys():
                 # if name == i_name[0] and i_name[0] != "":
-                if re.match( f'^{name}$', i_name[0]):
+                if re.match( '^{}$'.format(name), i_name[0]):
                     if kept_layers.get(i_name[0]):
                         kept_layers[i_name[0]].append(item.name)
                     else:
@@ -257,7 +260,7 @@ class Svg2ModExport(ABC):
                 self._write_items( item.items, layer, flip )
                 continue
 
-            if re.match(r"^Drill.\w+", layer):
+            if re.match(r"^Drill\.\w+", str(layer)):
                 if isinstance(item, svg.Circle):
                     self._write_thru_hole(item, layer)
                 else:
@@ -273,10 +276,14 @@ class Svg2ModExport(ABC):
                 ]
 
                 fill, stroke, stroke_width = self._get_fill_stroke( item )
-                fill = (False if layer == "Edge.Cuts" else fill)
+                if layer == "Edge.Cuts":
+                    fill = False
+                    stroke = True
+                    stroke_width = MINIMUM_SIZE if stroke_width < MINIMUM_SIZE else stroke_width
 
-                fill = (True if re.match("^Keepout", layer) else fill)
-                stroke_width = (0.508 if re.match("^Keepout", layer) else stroke_width)
+
+                fill = (True if re.match("^Keepout", str(layer)) else fill)
+                stroke_width = (0.508 if re.match("^Keepout", str(layer)) else stroke_width)
 
                 for segment in segments:
                     segment.process( self, flip, fill )
@@ -1138,7 +1145,7 @@ class Svg2ModExportPretty( Svg2ModExport ):
         create_pad = (self.convert_pads and l_name.find("Cu") == 2) or options.get("copper_pad")
 
         if stroke_width == 0:
-            stroke_width = 1e-5 #This is the smallest a pad can be and still be rendered in kicad
+            stroke_width = MINIMUM_SIZE
 
         if l_name == "Keepout":
             self._extra_indent = 1
@@ -1178,9 +1185,11 @@ class Svg2ModExportPretty( Svg2ModExport ):
             if options.get("pad_paste"):
                 layer += " {}.Paste".format(l_name.split(".", 1)[0])
             self._extra_indent = 1
+
             self._special_footer = "      )\n    (width {}) )\n  ))".format(
                     stroke_width
                 )
+
             self.output_file.write( '''\n  (pad "{0}" smd custom (at {1} {2}) (size {3:.6f} {3:.6f}) (layers {4})
     (zone_connect 0)
     (options (clearance outline) (anchor circle))
@@ -1261,13 +1270,14 @@ class Svg2ModExportPretty( Svg2ModExport ):
         else:
             size = rad
 
+        center = self.transform_point(circle.center)
 
         self.output_file.write(
             '\n  (pad "{0}" {1}thru_hole circle (at {2} {3}) (size {4} {4}) (drill {5}) (layers *.Mask{6}) {7})'.format(
                 pad_number, #0
                 "" if plated else "np_", #1
-                circle.center.x * self.scale_factor, #2
-                circle.center.y * self.scale_factor, #3
+                center.x, #2
+                center.y, #3
                 size, #4
                 drill, #5
                 " *.Cu" if plated else "", #6

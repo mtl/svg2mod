@@ -1131,7 +1131,7 @@ class Text(Transformable):
         }
         for style in self.style:
             if style in self.font_configs.keys() and self.style[style]:
-                self.font_configs[name] = self.style[style]
+                self.font_configs[style] = self.style[style]
 
         if isinstance(self.font_configs["font-size"], str):
             self.font_configs["font-size"] = float(self.font_configs["font-size"].strip("px"))
