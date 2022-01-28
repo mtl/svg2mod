@@ -18,8 +18,8 @@ A simple modification to the formatter class in the python logger to allow
 ANSI color codes based on the logged message's level
 '''
 
-import sys
 import logging
+import sys
 
 
 class Formatter(logging.Formatter):
@@ -44,10 +44,12 @@ class Formatter(logging.Formatter):
         color, sends the message to the super.format, and
         finally returns the style to the original format
         '''
-        fmt_org = self._style._fmt
-        self._style._fmt = Formatter.color[record.levelno] + fmt_org + Formatter.reset
+        if sys.stdout.isatty():
+            fmt_org = self._style._fmt
+            self._style._fmt = Formatter.color[record.levelno] + fmt_org + Formatter.reset
         result = logging.Formatter.format(self, record)
-        self._style._fmt = fmt_org
+        if sys.stdout.isatty():
+            self._style._fmt = fmt_org
         return result
 
 def split_logger(logger, formatter=Formatter(), brkpoint=logging.WARNING):

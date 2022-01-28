@@ -95,26 +95,75 @@ svg2mod expects images saved in the uncompressed Inkscape SVG (i.e., not "plain 
 
 This supports the layers listed below. They are the same in inkscape and kicad:
 
-| KiCad layer(s)   | KiCad legacy | KiCad pretty |
-|:----------------:|:------------:|:------------:|
-| F.Cu             | Yes          | Yes          |
-| B.Cu             | Yes          | Yes          |
-| F.Adhes          | Yes          | Yes          |
-| B.Adhes          | Yes          | Yes          |
-| F.Paste          | Yes          | Yes          |
-| B.Paste          | Yes          | Yes          |
-| F.SilkS          | Yes          | Yes          |
-| B.SilkS          | Yes          | Yes          |
-| F.Mask           | Yes          | Yes          |
-| B.Mask           | Yes          | Yes          |
-| Dwgs.User        | Yes          | Yes          |
-| Cmts.User        | Yes          | Yes          |
-| Eco1.User        | Yes          | Yes          |
-| Eco2.User        | Yes          | Yes          |
-| Edge.Cuts        | Yes          | Yes          |
-| F.Fab            | --           | Yes          |
-| B.Fab            | --           | Yes          |
-| F.CrtYd          | --           | Yes          |
-| B.CrtYd          | --           | Yes          |
+| KiCad layer(s)         | KiCad legacy | KiCad pretty |
+|:----------------------:|:------------:|:------------:|
+| F.Cu [^1]              | Yes          | Yes          |
+| B.Cu [^1]              | Yes          | Yes          |
+| F.Adhes                | Yes          | Yes          |
+| B.Adhes                | Yes          | Yes          |
+| F.Paste                | Yes          | Yes          |
+| B.Paste                | Yes          | Yes          |
+| F.SilkS                | Yes          | Yes          |
+| B.SilkS                | Yes          | Yes          |
+| F.Mask                 | Yes          | Yes          |
+| B.Mask                 | Yes          | Yes          |
+| Dwgs.User              | Yes          | Yes          |
+| Cmts.User              | Yes          | Yes          |
+| Eco1.User              | Yes          | Yes          |
+| Eco2.User              | Yes          | Yes          |
+| Edge.Cuts              | Yes          | Yes          |
+| F.Fab                  | --           | Yes          |
+| B.Fab                  | --           | Yes          |
+| F.CrtYd                | --           | Yes          |
+| B.CrtYd                | --           | Yes          |
+| Drill.Cu [^1]          | --           | Yes          |
+| Drill.Mech [^1]        | --           | Yes          |
+| *.Keepout [^1][^2][^3] | --           | Yes          |
 
-Note: If you have a layer "F.Cu", all of its sub-layers will be treated as "F.Cu" regardless of their names.
+Note: If you have a layer `F.Cu`, all of its sub-layers will be treated as `F.Cu` regardless of their names.
+
+### Layer Options
+
+Some layers can have options when saving to the newer 'pretty' format.
+
+The options are seperated from the layer name by `:`. Ex `F.Cu:...`
+
+Some options can have arguments which are also seperated from
+the option key by `:`. If an option has more than one argument they
+are seperated by a comma. Ex: `F.Cu:Pad:1,mask`.
+
+If a layer has more than one option they will be seperated by `;`
+Ex: `F.Cu:pad;...`
+
+Supported Arguments:
+
+* Pad
+  
+  Any copper layer can have the pad specified.
+  The pad option can be used solo (`F.Cu:Pad`) or it can also have it's own arguments.
+  The arguments are:
+
+  * Number 
+    If it is set it will specify the number of the pad. Ex: `Pad:1`
+
+  * Paste _(Not avalable for `Drill.Cu`)_
+  * Mask _(Not avalable for `Drill.Cu`)_
+
+
+* Allowed
+  
+  Keepout areas will prevent anything from being placed inside them.
+  To allow some things to be placed inside the keepout zone a comma 
+  seperated list of any of the following options can be used:
+  `tracks`,`vias`,`pads`,`copperpour`,`footprints`
+  
+
+
+
+[^1]: These layers can have arguments when svg2mod is in pretty mode
+
+[^2]: Only works in Kicad versions >= v6.
+
+[^3]: The * can be { *, F, B, I } or any combination like FB or BI. These options are for Front, Back, and Internal.
+
+

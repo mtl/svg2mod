@@ -1,5 +1,3 @@
-# SVG parser in Python
-
 # Copyright (C) 2013 -- CJlano < cjlano @ free.fr >
 # Copyright (C) 2022 -- svg2mod developers < GitHub.com / svg2mod >
 
@@ -21,26 +19,25 @@ A SVG parser with tools to convert an XML svg file
 to objects that can be simplified into points.
 '''
 
-import xml.etree.ElementTree as etree
-from typing import List, Tuple
-import math
-import sys
-import os
 import copy
-import re
+import inspect
 import itertools
-import operator
-import platform
 import json
 import logging
-import inspect
+import math
+import operator
+import os
+import platform
+import re
+import sys
+import xml.etree.ElementTree as etree
+from typing import List, Tuple
 
-from fontTools.ttLib import ttFont
-from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.misc import loggingTools
+from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.ttLib import ttFont
 
-from .geometry import Point,Angle,Segment,Bezier,MoveTo,simplify_segment
-
+from .geometry import Angle, Bezier, MoveTo, Point, Segment, simplify_segment
 
 svg_ns = '{http://www.w3.org/2000/svg}'
 
@@ -69,6 +66,10 @@ _font_warning_sent = False
 
 class Transformable:
     '''Abstract class for objects that can be geometrically drawn & transformed'''
+
+    # This list is all styles that should have the transformation matrix applied
+    transformable_styles = ["stroke-width"]
+
     def __init__(self, elt=None):
         # a 'Transformable' is represented as a list of Transformable items
         self.items = []
@@ -77,11 +78,33 @@ class Transformable:
         self.matrix = Matrix()
         self.scalex = 1
         self.scaley = 1
-        self.style = ""
+        self.style = {}
         self.rotation = 0
         self.viewport = Point(800, 600) # default viewport is 800x600
         if elt is not None:
             self.id = elt.get('id', self.id)
+
+            # parse styles and save as dictionary.
+            if elt.get('style'):
+                for style in elt.get('style').split(";"):
+                    if style.find(":") == -1:
+                        self.style[name] = None
+                    else:
+                        nv = style.split(":")
+                        name = nv[ 0 ].strip()
+                        value = nv[ 1 ].strip()
+                        if name in self.transformable_styles:
+                            value = list(re.search(r'(\d+\.?\d*)(\D+)?', value).groups())
+                            self.style[name] = float(value[0])
+                            # if not value[1]:
+                                # TODO verify that mm is the default value for more than stroke-width
+                                # value[1] = "mm"
+                            if value[1] and value[1] not in unit_convert:
+                                logging.warning("Style '{}' has an unexpected unit: {}".format(style, value[1]))
+                            # self.style[name] /= unit_convert[value[1]]
+                        else:
+                            self.style[name] = value
+
             # Parse transform attribute to update self.matrix
             self.get_transformations(elt)
 
@@ -157,6 +180,15 @@ class Transformable:
                 tana = math.tan(math.radians(arg[0]))
                 self.matrix *= Matrix([1, tana, 0, 1, 0, 0])
 
+    def transform_styles(self, matrix):
+        '''Any style in this classes transformable_styles
+        will be scaled by the provided matrix.
+        '''
+        for style in self.transformable_styles:
+            if self.style.get(style):
+                self.style[style] = float(self.style[style]) * ((matrix.xscale()+matrix.yscale())/2)
+
+
     def transform(self, matrix=None):
         '''Apply the provided matrix. Default (None)
         If no matrix is supplied then recursively apply
@@ -166,6 +198,7 @@ class Transformable:
             matrix = self.matrix
         else:
             matrix *= self.matrix
+        self.transform_styles(matrix)
         #print( "do transform: {}: {}".format( self.__class__.__name__, matrix ) )
         #print( "do transform: {}: {}".format( self, matrix ) )
         #traceback.print_stack()
@@ -395,12 +428,6 @@ class Matrix:
     def __str__(self):
         return str(self.vect)
 
-    def xlength(self, x):
-        '''x scale of vector'''
-        return x * self.vect[0]
-    def ylength(self, y):
-        '''y scale of vector'''
-        return y * self.vect[3]
     def xscale(self):
         '''Return the rotated x scalar value'''
         return self.vect[0]/abs(self.vect[0]) * math.sqrt(self.vect[0]**2 + self.vect[2]**2)
@@ -433,7 +460,6 @@ class Path(Transformable):
     def __init__(self, elt=None):
         Transformable.__init__(self, elt)
         if elt is not None:
-            self.style = elt.get('style')
             self.parse(elt.get('d'))
 
     def parse(self, pathstr:str):
@@ -627,7 +653,6 @@ class Ellipse(Transformable):
                                 self.ylength(elt.get('cy')))
             self.rx = self.length(elt.get('rx'))
             self.ry = self.length(elt.get('ry'))
-            self.style = elt.get('style')
             if elt.get('d') is not None:
                 self.arc = True
                 self.path = Path(elt)
@@ -657,6 +682,8 @@ class Ellipse(Transformable):
             matrix = self.matrix
         else:
             matrix *= self.matrix
+        self.transform_styles(matrix)
+
         self.center = matrix * self.center
         self.rx = matrix.xscale()*self.rx
         self.ry = matrix.yscale()*self.ry
@@ -908,7 +935,6 @@ class Rect(Path):
     def __init__(self, elt=None):
         Transformable.__init__(self, elt)
         if elt is not None:
-            self.style = elt.get('style')
             p = Point(self.xlength(elt.get('x')),
                             self.ylength(elt.get('y')))
             width = self.xlength(elt.get("width"))
@@ -918,6 +944,8 @@ class Rect(Path):
             ry = self.xlength(elt.get('ry'))
             if not rx: rx = ry if ry else 0
             if not ry: ry = rx if rx else 0
+            if rx > width/2: rx = width/2
+            if ry > height/2: ry = width/2
             if rx or ry:
                 cmd = f'''M{p.x+rx} {p.y} a{rx} {ry} 0 0 0 {-rx} {ry} v{height-(ry*2)}
                 a{rx} {ry} 0 0 0 {rx} {ry}   h{width-(rx*2)}
@@ -975,6 +1003,8 @@ class Line(Transformable):
             matrix = self.matrix
         else:
             matrix *= self.matrix
+        self.transform_styles(matrix)
+
         self.P1 = matrix * self.P1
         self.P2 = matrix * self.P2
         self.segment = Segment(self.P1, self.P2)
@@ -1026,7 +1056,6 @@ class Text(Transformable):
         self.paths = []
 
         if elt is not None:
-            self.style = elt.get('style')
             self.parse(elt, parent)
             if parent is None:
                 self.convert_to_path(auto_transform=False)
@@ -1100,14 +1129,9 @@ class Text(Transformable):
             "font-weight": elt.get('font-weight'),
             "font-style": elt.get('font-style'),
         }
-        if self.style is not None:
-            for style in self.style.split(";"):
-                if style.find(":") == -1: continue
-                nv = style.split(":")
-                name = nv[ 0 ].strip()
-                value = nv[ 1 ].strip()
-                if list(self.font_configs.keys()).count(name) != 0:
-                    self.font_configs[name] = value
+        for style in self.style:
+            if style in self.font_configs.keys() and self.style[style]:
+                self.font_configs[name] = self.style[style]
 
         if isinstance(self.font_configs["font-size"], str):
             self.font_configs["font-size"] = float(self.font_configs["font-size"].strip("px"))
@@ -1250,7 +1274,7 @@ class Text(Transformable):
                 pathbuf = ""
                 try: glf = ttf.getGlyphSet()[ttf.getBestCmap()[ord(char)]]
                 except KeyError:
-                    logging.warning(f"Unsuported character in <text> element \"{char}\"")
+                    logging.warning('Unsuported character in <text> element "{}"'.format(char))
                     #txt = txt.replace(char, "")
                     continue
 
@@ -1298,6 +1322,8 @@ class Text(Transformable):
             matrix = self.matrix
         else:
             matrix *= self.matrix
+        self.transform_styles(matrix)
+
         self.origin = matrix * self.origin
         for paths in self.paths:
             for path in paths:
