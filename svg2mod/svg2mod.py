@@ -409,6 +409,7 @@ class PolygonSegment:
             #) )
 
         self.points = points
+        self.calc_bbox()
 
 
     #------------------------------------------------------------------------
