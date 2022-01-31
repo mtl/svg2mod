@@ -289,15 +289,21 @@ class Svg2ModExport(ABC):
                     segment.process( self, flip, fill )
 
                 if len( segments ) > 1:
+                    # Sort segments in order of size
                     segments.sort(key=lambda v: svg.Segment(v.bbox[0], v.bbox[1]).length(), reverse=True)
 
+                    # Write all segments
                     while len(segments) > 0:
                         inlinable = [segments[0]]
+
+                        # Search to see if any paths are contained in the current shape
                         for seg in segments[1:]:
+                            # Contained in parent shape
                             if not inlinable[0].are_distinct(seg):
                                 append = True
                                 if len(inlinable) > 1:
                                     for hole in inlinable[1:]:
+                                        # Contained in a hole. It is separate
                                         if not hole.are_distinct(seg):
                                             append = False
                                             break

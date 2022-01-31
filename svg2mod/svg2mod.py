@@ -30,7 +30,6 @@ from svg2mod import svg
 
 class LineSegment:
     '''Kicad can only draw straight lines.
-    This class can be type-cast from svg.geometry.Segment
     It is designed to have extra functions to help
     calculate intersections.
     '''
@@ -168,13 +167,14 @@ class LineSegment:
         self.p = self.q
         self.q = q
 
+    #------------------------------------------------------------------------
+
     def __eq__(self, other):
         return (
             isinstance(other, LineSegment) and
             other.p.x == self.p.x and other.p.y == self.p.y and
             other.q.x == self.q.x and other.q.y == self.q.y
         )
-
 
     #------------------------------------------------------------------------
 
@@ -337,6 +337,7 @@ class PolygonSegment:
 
         intersections = 0
         intersect_segs = []
+        virt_line = LineSegment()
 
         # Check each segment of other hole for intersection:
         for point in self.points:
@@ -354,8 +355,27 @@ class PolygonSegment:
                         if get_points:
                             intersect_segs.append((hole_segment.p, hole_segment.q))
                         else:
-                            # If line_segment passes thru a point this prevents a second false positive
-                            intersections += 0 if line_segment.on_line(hole_segment.q) else 1
+                            # If a point is on the line segment we need to see if the
+                            # simplified "virtual" line crosses the line segment.
+
+                            # Set the endpoints if they are of the line segment
+                            if line_segment.on_line(hole_segment.q):
+                                if not line_segment.on_line(hole_segment.p):
+                                    virt_line.p = hole_segment.p
+                            elif line_segment.on_line(hole_segment.p):
+                                virt_line.q = hole_segment.q
+
+                            # No points are on the line segment
+                            else:
+                                intersections += 1
+                                virt_line = LineSegment()
+
+                            # The virtual line is complete check for intersections
+                            if virt_line.p and virt_line.q:
+                                if virt_line.intersects(line_segment):
+                                    intersections += 1
+                                virt_line = LineSegment()
+
                     elif get_points:
                         return hole_segment.p, hole_segment.q
                     else:
