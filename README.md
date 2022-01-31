@@ -4,7 +4,8 @@
 
 [![PyPI](https://img.shields.io/pypi/v/svg2mod?color=informational&label=version&style=for-the-badge)](https://pypi.org/project/svg2mod/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/svg2mod?style=for-the-badge)](https://pypi.org/project/svg2mod/)
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/svg2mod?logo=python&logoColor=white&style=for-the-badge)](https://pypi.org/project/svg2mod/)
+[![PyPI - Downloads](https://img.shields.io/endpoint?logoColor=red&url=https%3A%2F%2Fmikej.tech%2Fpepy.php%3Fproject%3Dsvg2mod)](https://pypi.org/project/svg2mod/)
+
 
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/sodium-hydrogen?logo=github&style=for-the-badge)](https://github.com/sponsors/Sodium-Hydrogen)
 [![PyPI - License](https://img.shields.io/pypi/l/svg2mod?color=purple&style=for-the-badge)](https://pypi.org/project/svg2mod/)
