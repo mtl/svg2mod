@@ -78,7 +78,7 @@ class Svg2ModExport(ABC):
     def _write_polygon( self, points, layer, fill, stroke, stroke_width ):pass
 
     @abstractmethod
-    def _write_polygon_footer( self, layer, stroke_width ):pass
+    def _write_polygon_footer( self, layer, stroke_width, fill=True):pass
 
     @abstractmethod
     def _write_polygon_point( self, point ):pass
@@ -109,26 +109,24 @@ class Svg2ModExport(ABC):
 
         s = item.style
 
-        fill = False if s.get('fill') and s["fill"] == "none" else True
+        fill = False if not s.get('fill') or s["fill"] == "none" else True
         fill = fill if not s.get('fill-opacity') or float(s['fill-opacity']) != 0 else False
 
-        stroke = False if s.get('stroke') and s["stroke"] == "none" else True
+        stroke = False if not s.get('stroke') or s["stroke"] == "none" else True
         stroke = stroke if not s.get('stroke-opacity') or float(s['stroke-opacity']) != 0 else False
 
-        stroke_width = s["stroke-width"] if stroke and s.get('stroke-width') else None
-
-        if stroke_width:
-            stroke_width *= self.scale_factor
-
-        if stroke and stroke_width is None:
-            # Give a default stroke width?
-            stroke_width = self._convert_decimal_to_mm( 1 ) if self.use_mm else 1
+        stroke_width = s["stroke-width"] * self.scale_factor if s.get('stroke-width') else MINIMUM_SIZE
 
         if stroke_width is None:
             stroke_width = 0
 
+        # This should display something.
+        if not fill and not stroke:
+            stroke = True
+            stroke_width = stroke_width if stroke_width else MINIMUM_SIZE
 
-        return fill, stroke, stroke_width
+        # There should be no stroke_width if no stroke
+        return fill, stroke, stroke_width if stroke else 0
 
 
     #------------------------------------------------------------------------
@@ -299,7 +297,7 @@ class Svg2ModExport(ABC):
                         # Search to see if any paths are contained in the current shape
                         for seg in segments[1:]:
                             # Contained in parent shape
-                            if not inlinable[0].are_distinct(seg):
+                            if fill and not inlinable[0].are_distinct(seg):
                                 append = True
                                 if len(inlinable) > 1:
                                     for hole in inlinable[1:]:
@@ -375,7 +373,6 @@ class Svg2ModExport(ABC):
 
                 layer = self._get_layer_name( i_name, name, front )
 
-                #print( "  Writing layer: {}".format( name ) )
                 self._write_items( group.items, layer, not front )
 
         self._write_module_footer( front )
@@ -642,7 +639,7 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
 
     #------------------------------------------------------------------------
 
-    def _write_polygon_footer( self, layer, stroke_width ):
+    def _write_polygon_footer( self, layer, stroke_width, fill=True ):
 
         pass
 
@@ -1102,6 +1099,15 @@ class Svg2ModExportPretty( Svg2ModExport ):
 
         self._write_polygon_footer( layer, stroke_width )
 
+    #------------------------------------------------------------------------
+
+    def _write_polygon_outline( self, points, layer, stroke_width = 0):
+        self._write_polygon_header( points, layer, stroke_width)
+
+        for point in points:
+            self._write_polygon_point( point )
+
+        self._write_polygon_footer( layer, stroke_width, fill=False )
 
     #------------------------------------------------------------------------
 
@@ -1123,14 +1129,18 @@ class Svg2ModExportPretty( Svg2ModExport ):
 
     #------------------------------------------------------------------------
 
-    def _write_polygon_footer( self, layer, stroke_width ):
+    def _write_polygon_footer( self, layer, stroke_width, fill=True ):
 
         if self._special_footer:
-            self.output_file.write(self._special_footer)
+            self.output_file.write(self._special_footer.format(
+                layer.split(":", 1)[0], stroke_width,
+                " (fill none)" if not fill else ""
+            ))
         else:
             self.output_file.write(
-                "    )\n    (layer {})\n    (width {})\n  )".format(
-                    layer.split(":", 1)[0], stroke_width
+                "    )\n    (layer {})\n    (width {}){}\n  )".format(
+                    layer.split(":", 1)[0], stroke_width,
+                    " (fill none)" if not fill else ""
                 )
             )
         self._special_footer = ""
@@ -1192,7 +1202,7 @@ class Svg2ModExportPretty( Svg2ModExport ):
                 layer += " {}.Paste".format(l_name.split(".", 1)[0])
             self._extra_indent = 1
 
-            self._special_footer = "      )\n    (width {}) )\n  ))".format(
+            self._special_footer = "      )\n    (width {}){{2}})\n  ))".format(
                     stroke_width
                 )
 
@@ -1241,7 +1251,7 @@ class Svg2ModExportPretty( Svg2ModExport ):
   )""".format(
                 p.x, p.y,
                 q.x, q.y,
-                layer,
+                layer.split(':',1)[0],
                 stroke_width,
             )
         )

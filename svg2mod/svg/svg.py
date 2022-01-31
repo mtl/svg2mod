@@ -25,6 +25,7 @@ import itertools
 import json
 import logging
 import math
+from multiprocessing import parent_process
 import operator
 import os
 import platform
@@ -70,7 +71,7 @@ class Transformable:
     # This list is all styles that should have the transformation matrix applied
     transformable_styles = ["stroke-width"]
 
-    def __init__(self, elt=None):
+    def __init__(self, elt=None, parent_styles=None):
         # a 'Transformable' is represented as a list of Transformable items
         self.items = []
         self.id = hex(id(self))
@@ -78,7 +79,7 @@ class Transformable:
         self.matrix = Matrix()
         self.scalex = 1
         self.scaley = 1
-        self.style = {}
+        self.style = {} if not parent_styles and not isinstance(parent_styles, dict) else parent_styles.copy()
         self.rotation = 0
         self.viewport = Point(800, 600) # default viewport is 800x600
         if elt is not None:
@@ -96,12 +97,8 @@ class Transformable:
                         if name in self.transformable_styles:
                             value = list(re.search(r'(\d+\.?\d*)(\D+)?', value).groups())
                             self.style[name] = float(value[0])
-                            # if not value[1]:
-                                # TODO verify that mm is the default value for more than stroke-width
-                                # value[1] = "mm"
                             if value[1] and value[1] not in unit_convert:
                                 logging.warning("Style '{}' has an unexpected unit: {}".format(style, value[1]))
-                            # self.style[name] /= unit_convert[value[1]]
                         else:
                             self.style[name] = value
 
@@ -199,9 +196,6 @@ class Transformable:
         else:
             matrix *= self.matrix
         self.transform_styles(matrix)
-        #print( "do transform: {}: {}".format( self.__class__.__name__, matrix ) )
-        #print( "do transform: {}: {}".format( self, matrix ) )
-        #traceback.print_stack()
         for x in self.items:
             x.transform(matrix)
 
@@ -331,8 +325,8 @@ class Group(Transformable):
     # class Group handles the <g> tag
     tag = 'g'
 
-    def __init__(self, elt=None):
-        Transformable.__init__(self, elt)
+    def __init__(self, elt=None, *args, **kwargs):
+        Transformable.__init__(self, elt, *args, **kwargs)
 
         self.name = ""
         self.hidden = False
@@ -368,7 +362,7 @@ class Group(Transformable):
                 logging.debug('No handler for element %s' % elt.tag)
                 continue
             # instantiate elt associated class (e.g. <path>: item = Path(elt)
-            item = elt_class(elt)
+            item = elt_class(elt, parent_styles=self.style)
             # Apply group matrix to the newly created object
             # Actually, this is effectively done in Svg.__init__() through call to
             # self.transform(), so doing it here will result in the transformations
@@ -457,8 +451,8 @@ class Path(Transformable):
     tag = 'path'
     COMMANDS = 'MmZzLlHhVvCcSsQqTtAa'
 
-    def __init__(self, elt=None):
-        Transformable.__init__(self, elt)
+    def __init__(self, elt=None, *args, **kwargs):
+        Transformable.__init__(self, elt, *args, **kwargs)
         if elt is not None:
             self.parse(elt.get('d'))
 
@@ -645,8 +639,8 @@ class Ellipse(Transformable):
     # class Ellipse handles the <ellipse> tag
     tag = 'ellipse'
 
-    def __init__(self, elt=None):
-        Transformable.__init__(self, elt)
+    def __init__(self, elt=None, *args, **kwargs):
+        Transformable.__init__(self, elt, *args, **kwargs)
         self.arc = False
         if elt is not None:
             self.center = Point(self.xlength(elt.get('cx')),
@@ -911,11 +905,11 @@ class Circle(Ellipse):
     # class Circle handles the <circle> tag
     tag = 'circle'
 
-    def __init__(self, elt=None):
+    def __init__(self, elt=None, *args, **kwargs):
         if elt is not None:
             elt.set('rx', elt.get('r'))
             elt.set('ry', elt.get('r'))
-        Ellipse.__init__(self, elt)
+        Ellipse.__init__(self, elt, *args, **kwargs)
 
     def __repr__(self):
         return '<Circle ' + self.id + '>'
@@ -932,8 +926,8 @@ class Rect(Path):
     # class Rect handles the <rect> tag
     tag = 'rect'
 
-    def __init__(self, elt=None):
-        Transformable.__init__(self, elt)
+    def __init__(self, elt=None, *args, **kwargs):
+        Transformable.__init__(self, elt, *args, **kwargs)
         if elt is not None:
             p = Point(self.xlength(elt.get('x')),
                             self.ylength(elt.get('y')))
@@ -973,8 +967,8 @@ class Line(Transformable):
     # class Line handles the <line> tag
     tag = 'line'
 
-    def __init__(self, elt=None):
-        Transformable.__init__(self, elt)
+    def __init__(self, elt=None, *args, **kwargs):
+        Transformable.__init__(self, elt, *args, **kwargs)
         if elt is not None:
             self.P1 = Point(self.xlength(elt.get('x1')),
                             self.ylength(elt.get('y1')))
@@ -1049,8 +1043,8 @@ class Text(Transformable):
         "Windows": ["C:/Windows/Fonts", "~/AppData/Local/Microsoft/Windows/Fonts"]
     }
 
-    def __init__(self, elt=None, parent=None):
-        Transformable.__init__(self, elt)
+    def __init__(self, elt=None, parent=None, *args, **kwargs):
+        Transformable.__init__(self, elt, *args, **kwargs)
 
         self.bbox_points = [Point(0,0), Point(0,0)]
         self.paths = []
