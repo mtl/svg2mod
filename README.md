@@ -4,7 +4,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/svg2mod?color=informational&label=version&style=for-the-badge)](https://pypi.org/project/svg2mod/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/svg2mod?style=for-the-badge)](https://pypi.org/project/svg2mod/)
-[![PyPI - Downloads](https://img.shields.io/endpoint?logoColor=red&url=https%3A%2F%2Fmikej.tech%2Fpepy.php%3Fproject%3Dsvg2mod)](https://pypi.org/project/svg2mod/)
+[![PyPI - Downloads](https://img.shields.io/badge/dynamic/xml?style=for-the-badge&color=green&label=downloads&query=%2F%2F%2A%5Blocal-name%28%29%20%3D%20%27text%27%5D%5Blast%28%29%5D&suffix=%2Fmonth&url=https%3A%2F%2Fstatic.pepy.tech%2Fbadge%2Fsvg2mod%2Fmonth)](https://pypi.org/project/svg2mod/)
 
 
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/sodium-hydrogen?logo=github&style=for-the-badge)](https://github.com/sponsors/Sodium-Hydrogen)
