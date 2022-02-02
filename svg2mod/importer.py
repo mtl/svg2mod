@@ -39,8 +39,8 @@ class Svg2ModImport:
 
         for item in items[:]:
 
-            if hasattr(item, "hidden") and item.hidden :
-                if item.name:
+            if (hasattr(item, "hidden") and item.hidden ) or (hasattr(item, "style") and item.style.get("display") == "none"):
+                if hasattr(item, "name") and item.name:
                     logging.warning("Ignoring hidden SVG item: {}".format( item.name ) )
                 items.remove(item)
 

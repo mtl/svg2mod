@@ -232,6 +232,10 @@ class Svg2ModExport(ABC):
             for name in self.layers.keys():
                 # if name == i_name[0] and i_name[0] != "":
                 if re.match( '^{}$'.format(name), i_name[0]):
+                    # Don't add empty groups to the list of valid items
+                    if isinstance(item, svg.Group) and not item.items:
+                        break
+
                     if kept_layers.get(i_name[0]):
                         kept_layers[i_name[0]].append(item.name)
                     else:
@@ -246,6 +250,13 @@ class Svg2ModExport(ABC):
         for kept in sorted(kept_layers.keys()):
             logging.getLogger("unfiltered").info( "Found SVG layer: {}".format( kept ) )
             logging.debug( "  Detailed SVG layers: {}".format( ", ".join(kept_layers[kept]) ) )
+
+        # There are no elements to write so don't write
+        for name in self.layers:
+            if self.layers[name]:
+                break
+        else:
+            raise Exception("Not writing empty file. No valid items found.")
 
 
     #------------------------------------------------------------------------
@@ -914,7 +925,7 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
 
 class Svg2ModExportPretty( Svg2ModExport ):
     ''' This provides functionality for the
-    newer kicad "pretty" footprint file formats.
+    older kicad "pretty" footprint file formats.
     It is a child of Svg2ModExport.
     '''
 
@@ -941,10 +952,14 @@ class Svg2ModExportPretty( Svg2ModExport ):
         'B.Fab' :   "B.Fab",
         'Drill.Cu': "Drill.Cu",
         'Drill.Mech': "Drill.Mech",
-        r'\S+\.Keepout': "Keepout"
     }
 
     keepout_allowed = ['tracks','vias','pads','copperpour','footprints']
+
+
+    # Breaking changes where introduced in kicad v6
+    # This variable disables the drill breaking changes for v5 support
+    _drill_inner_layers = False
 
 
     #------------------------------------------------------------------------
@@ -987,6 +1002,7 @@ class Svg2ModExportPretty( Svg2ModExport ):
         if len(item_name) == 2 and item_name[1]:
             for arg in item_name[1].split(';'):
                 arg = arg.strip(' ,:')
+                # This is used in Svg2ModExportLatest as it is a breaking change
                 if name == "Keepout" and re.match(r'^allowed:\w+', arg, re.I):
                     attrs["allowed"] = []
                     for allowed in arg.lower().split(":", 1)[1].split(','):
@@ -1101,16 +1117,6 @@ class Svg2ModExportPretty( Svg2ModExport ):
 
     #------------------------------------------------------------------------
 
-    def _write_polygon_outline( self, points, layer, stroke_width = 0):
-        self._write_polygon_header( points, layer, stroke_width)
-
-        for point in points:
-            self._write_polygon_point( point )
-
-        self._write_polygon_footer( layer, stroke_width, fill=False )
-
-    #------------------------------------------------------------------------
-
     def _write_polygon( self, points, layer, fill, stroke, stroke_width ):
 
         if fill:
@@ -1131,16 +1137,15 @@ class Svg2ModExportPretty( Svg2ModExport ):
 
     def _write_polygon_footer( self, layer, stroke_width, fill=True ):
 
+        #Format option #2 is expected, but only used in Svg2ModExportLatest
         if self._special_footer:
             self.output_file.write(self._special_footer.format(
-                layer.split(":", 1)[0], stroke_width,
-                " (fill none)" if not fill else ""
+                layer.split(":", 1)[0], stroke_width, "" #2
             ))
         else:
             self.output_file.write(
                 "    )\n    (layer {})\n    (width {}){}\n  )".format(
-                    layer.split(":", 1)[0], stroke_width,
-                    " (fill none)" if not fill else ""
+                    layer.split(":", 1)[0], stroke_width, "" #3
                 )
             )
         self._special_footer = ""
@@ -1246,21 +1251,54 @@ class Svg2ModExportPretty( Svg2ModExport ):
     #------------------------------------------------------------------------
 
     def _write_polygon_segment( self, p, q, layer, stroke_width ):
+        l_name = layer
+        options = {}
+        try:
+            l_name, options = layer.split(":", 1)
+            options = json.loads(options)
+        except ValueError:pass
 
-        self.output_file.write(
-            """\n  (fp_line
-    (start {} {})
-    (end {} {})
-    (layer {})
-    (width {})
-  )""".format(
-                p.x, p.y,
-                q.x, q.y,
-                layer.split(':',1)[0],
-                stroke_width,
+        create_pad = (self.convert_pads and l_name.find("Cu") == 2) or options.get("copper_pad")
+
+        if stroke_width == 0:
+            stroke_width = MINIMUM_SIZE
+
+        if create_pad:
+            pad_number = "" if not options.get("copper_pad") or isinstance(options["copper_pad"], bool) else str(options.get("copper_pad"))
+            layer = l_name
+            if options.get("pad_mask"):
+                layer += " {}.Mask".format(l_name.split(".", 1)[0])
+            if options.get("pad_paste"):
+                layer += " {}.Paste".format(l_name.split(".", 1)[0])
+
+            # There are major performance issues when multiple line primitives are in the same pad
+            self.output_file.write( '''\n  (pad "{0}" smd custom (at {1} {2}) (size {3:.6f} {3:.6f}) (layers {4})
+    (zone_connect 0)
+    (options (clearance outline) (anchor circle))
+    (primitives\n      (gr_line (start 0 0) (end {5} {6}) (width {3}))
+  ))'''.format(
+                    pad_number, #0
+                    p.x, #1
+                    p.y, #2
+                    stroke_width, #3
+                    layer, #4
+                    q.x - p.x, #5
+                    q.y - p.y, #6
+                )
             )
-        )
+        else:
 
+            self.output_file.write(
+                """\n  (fp_line
+        (start {} {}) (end {} {})
+        (layer {}) (width {})
+    )""".format(
+                    p.x, p.y,
+                    q.x, q.y,
+                    layer.split(':',1)[0],
+                    stroke_width,
+                )
+            )
 
     #------------------------------------------------------------------------
 
@@ -1302,9 +1340,81 @@ class Svg2ModExportPretty( Svg2ModExport ):
                 size, #4
                 drill, #5
                 " *.Cu" if plated else "", #6
-                "(remove_unused_layers) (keep_end_layers)" if plated else "", #7
+                "(remove_unused_layers) (keep_end_layers)" if plated and self._drill_inner_layers else "", #7
             )
         )
+
+    #------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------
+
+
+class Svg2ModExportLatest(Svg2ModExportPretty):
+    ''' This provides functionality for the newer kicad
+    "pretty" footprint file formats introduced in kicad v6.
+    It is a child of Svg2ModExport.
+    '''
+
+    layer_map = {
+        #'inkscape-name' : kicad-name,
+        'F.Cu' :    "F.Cu",
+        'B.Cu' :    "B.Cu",
+        'F.Adhes' : "F.Adhes",
+        'B.Adhes' : "B.Adhes",
+        'F.Paste' : "F.Paste",
+        'B.Paste' : "B.Paste",
+        'F.SilkS' : "F.SilkS",
+        'B.SilkS' : "B.SilkS",
+        'F.Mask' :  "F.Mask",
+        'B.Mask' :  "B.Mask",
+        'Dwgs.User' : "Dwgs.User",
+        'Cmts.User' : "Cmts.User",
+        'Eco1.User' : "Eco1.User",
+        'Eco2.User' : "Eco2.User",
+        'Edge.Cuts' : "Edge.Cuts",
+        'F.CrtYd' : "F.CrtYd",
+        'B.CrtYd' : "B.CrtYd",
+        'F.Fab' :   "F.Fab",
+        'B.Fab' :   "B.Fab",
+        'Drill.Cu': "Drill.Cu",
+        'Drill.Mech': "Drill.Mech",
+        r'\S+\.Keepout': "Keepout"
+    }
+
+    # Breaking changes where introduced in kicad v6
+    # This variable enables the drill breaking changes for v5 support
+    _drill_inner_layers = True
+
+    #------------------------------------------------------------------------
+
+    def _write_polygon_outline( self, points, layer, stroke_width = 0):
+        self._write_polygon_header( points, layer, stroke_width)
+
+        for point in points:
+            self._write_polygon_point( point )
+
+        self._write_polygon_footer( layer, stroke_width, fill=False )
+
+    #------------------------------------------------------------------------
+
+    def _write_polygon_footer( self, layer, stroke_width, fill=True ):
+
+        if self._special_footer:
+            self.output_file.write(self._special_footer.format(
+                layer.split(":", 1)[0], stroke_width,
+                " (fill none)" if not fill else ""
+            ))
+        else:
+            self.output_file.write(
+                "    )\n    (layer {})\n    (width {}){}\n  )".format(
+                    layer.split(":", 1)[0], stroke_width,
+                    " (fill none)" if not fill else ""
+                )
+            )
+        self._special_footer = ""
+        self._extra_indent = 0
+
+
 
     #------------------------------------------------------------------------
 

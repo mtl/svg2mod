@@ -39,9 +39,9 @@ If you have a project you are proud of please post about it on our
 ## Usage
 
 ```text
-usage: svg2mod [-h] [-i FILENAME] [-o FILENAME] [-c] [-P] [-v] [--debug] [-x]
-               [--force LAYER] [-d DPI] [-f FACTOR] [-p PRECISION] [--format FORMAT]
-               [--name NAME] [--units UNITS] [--value VALUE] [-F DEFAULT_FONT] [-l]
+usage: svg2mod [-h] [-i FILENAME] [-o FILENAME] [-c] [-P] [-v] [--debug] [-x] [--force LAYER]
+[-d DPI] [-f FACTOR] [-p PRECISION] [--format FORMAT] [--name NAME] [--units UNITS]
+               [--value VALUE] [-F DEFAULT_FONT] [-l]
 
 Convert Inkscape SVG drawings to KiCad footprint modules.
 
@@ -62,18 +62,17 @@ optional arguments:
   -f FACTOR, --factor FACTOR
                         Scale paths by this factor
   -p PRECISION, --precision PRECISION
-                        Smoothness for approximating curves with line segments. Input
-                        is the approximate length for each line segment in SVG pixels
-                        (float)
-  --format FORMAT       Output module file format (legacy|pretty)
+                        Smoothness for approximating curves with line segments. Input is the
+                        approximate length for each line segment in SVG pixels (float)
+  --format FORMAT       Output module file format (legacy|pretty|latest). 'latest' introduces
+                        features used in kicad >= 6
   --name NAME, --module-name NAME
                         Base name of the module
   --units UNITS         Output units, if output format is legacy (decimal|mm)
   --value VALUE, --module-value VALUE
                         Value of the module
   -F DEFAULT_FONT, --default-font DEFAULT_FONT
-                        Default font to use if the target font in a text element cannot
-                        be found
+                        Default font to use if the target font in a text element cannot be found
   -l, --list-fonts      List all fonts that can be found in common locations
 ```
 

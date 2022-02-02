@@ -28,7 +28,7 @@ import traceback
 
 import svg2mod.coloredlogger as coloredlogger
 from svg2mod import svg
-from svg2mod.exporter import (DEFAULT_DPI, Svg2ModExportLegacy,
+from svg2mod.exporter import (DEFAULT_DPI, Svg2ModExportLatest, Svg2ModExportLegacy,
                               Svg2ModExportLegacyUpdater, Svg2ModExportPretty)
 from svg2mod.importer import Svg2ModImport
 
@@ -75,7 +75,7 @@ def main():
     if args.default_font:
         svg.Text.default_font = args.default_font
 
-    pretty = args.format == 'pretty'
+    pretty = args.format in ['pretty','latest']
     use_mm = args.units == 'mm'
 
     if pretty:
@@ -111,7 +111,7 @@ def main():
 
         # Create an exporter:
         if pretty:
-            exported = Svg2ModExportPretty(
+            exported = (Svg2ModExportPretty if args.format == "pretty" else Svg2ModExportLatest)(
                 imported,
                 args.output_file_name,
                 args.center,
@@ -280,9 +280,9 @@ def get_arguments():
         type = str,
         dest = 'format',
         metavar = 'FORMAT',
-        choices = [ 'legacy', 'pretty' ],
-        help = "Output module file format (legacy|pretty)",
-        default = 'pretty',
+        choices = [ 'legacy', 'pretty', 'latest'],
+        help = "Output module file format (legacy|pretty|latest). 'latest' introduces features used in kicad >= 6",
+        default = 'latest',
     )
 
     parser.add_argument(
