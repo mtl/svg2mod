@@ -121,7 +121,7 @@ class Svg2ModExport(ABC):
             stroke_width = 0
 
         # This should display something.
-        if not fill and not stroke:
+        if not self.imported.ignore_hidden and not fill and not stroke:
             stroke = True
             stroke_width = stroke_width if stroke_width else MINIMUM_SIZE
 
@@ -217,6 +217,7 @@ class Svg2ModExport(ABC):
             for name in self.layer_map.keys():
                 self.layers[ name ] = []
 
+
             items = self.imported.svg.items
             self.imported.svg.items = []
 
@@ -235,7 +236,6 @@ class Svg2ModExport(ABC):
                         kept_layers[i_name[0]].append(item.name)
                     else:
                         kept_layers[i_name[0]] = [item.name]
-                    #logging.getLogger("unfiltered").info( "Found SVG layer: {}".format( item.name ) )
 
                     self.imported.svg.items.append( item )
                     self.layers[name].append((i_name, item))
@@ -589,13 +589,13 @@ Li {0}
 T0 0 {1} {2} {2} 0 {3} N I 21 "{0}"
 T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
 """.format(
-                self._get_module_name( front ),
-                reference_y,
-                label_size,
-                label_pen,
-                self.imported.module_value,
-                value_y,
-                15, # Seems necessary
+                self._get_module_name( front ), #0
+                reference_y, #1
+                label_size, #2
+                label_pen, #3
+                self.imported.module_value, #4
+                value_y, #5
+                15, # Seems necessary #6
             )
         )
 
@@ -1202,14 +1202,11 @@ class Svg2ModExportPretty( Svg2ModExport ):
                 layer += " {}.Paste".format(l_name.split(".", 1)[0])
             self._extra_indent = 1
 
-            self._special_footer = "      )\n    (width {}){{2}})\n  ))".format(
-                    stroke_width
-                )
+            self._special_footer = "\n  )"
 
             self.output_file.write( '''\n  (pad "{0}" smd custom (at {1} {2}) (size {3:.6f} {3:.6f}) (layers {4})
     (zone_connect 0)
-    (options (clearance outline) (anchor circle))
-    (primitives\n      (gr_poly (pts \n'''.format(
+    (options (clearance outline) (anchor circle))'''.format(
                     pad_number, #0
                     points[0].x, #1
                     points[0].y, #2
@@ -1217,11 +1214,19 @@ class Svg2ModExportPretty( Svg2ModExport ):
                     layer, #4
                 )
             )
-            originx = points[0].x
-            originy = points[0].y
-            for point in points:
-                point.x = point.x-originx
-                point.y = point.y-originy
+            # Pads primitives with 2 or less points crash kicad
+            if len(points) >= 2:
+                self.output_file.write('''\n    (primitives\n      (gr_poly (pts \n''')
+                self._special_footer = "      )\n    (width {}){{2}})\n  ))".format(stroke_width)
+
+                originx = points[0].x
+                originy = points[0].y
+                for point in points:
+                    point.x = point.x-originx
+                    point.y = point.y-originy
+            else:
+                for point in points[:]:
+                    points.remove(point)
         else:
             self.output_file.write( "\n  (fp_poly\n    (pts \n" )
 

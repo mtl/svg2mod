@@ -36,33 +36,41 @@ class Svg2ModImport:
         if items is None:
 
             items = self.svg.items
-            self.svg.items = []
+            # self.svg.items = []
 
-        for item in items:
+        for item in items[:]:
 
-            if not isinstance( item, svg.Group ):
-                continue
+            # if not isinstance( item, svg.Group ):
+            #     continue
 
-            if item.hidden :
-                logging.warning("Ignoring hidden SVG layer: {}".format( item.name ) )
-            elif item.name != "":
-                self.svg.items.append( item )
+            if hasattr(item, "hidden") and item.hidden :
+                if item.name:
+                    logging.warning("Ignoring hidden SVG item: {}".format( item.name ) )
+                items.remove(item)
+            # elif item.name != "":
+            #     self.svg.items.append( item )
 
-            if item.items:
+            if hasattr(item, "items") and item.items:
                 self._prune_hidden( item.items )
 
-    def __init__( self, file_name=None, module_name="svg2mod", module_value="G***", ignore_hidden_layers=False ):
+    def __init__( self, file_name=None, module_name="svg2mod", module_value="G***", ignore_hidden=False, force_layer=None):
 
         self.file_name = file_name
         self.module_name = module_name
         self.module_value = module_value
+        self.ignore_hidden = ignore_hidden
 
         if file_name:
             logging.getLogger("unfiltered").info( "Parsing SVG..." )
 
-            self.svg = svg.parse( file_name)
+            self.svg = svg.parse( file_name )
             logging.info("Document scaling: {} units per pixel".format(self.svg.viewport_scale))
-        if ignore_hidden_layers:
+        if force_layer:
+            new_layer = svg.Group()
+            new_layer.name = force_layer
+            new_layer.items = self.svg.items[:]
+            self.svg.items = [new_layer]
+        if self.ignore_hidden:
             self._prune_hidden()
 
 

@@ -411,22 +411,12 @@ class PolygonSegment:
             points[ 0 ].x != points[ -1 ].x or
             points[ 0 ].y != points[ -1 ].y
         ):
-            #print( "Warning: Closing polygon. start=({}, {}) end=({}, {})".format(
-                #points[ 0 ].x, points[ 0 ].y,
-                #points[ -1 ].x, points[ -1 ].y,
-            #) )
 
             if fill:
                 points.append( svg.Point(
                     points[ 0 ].x,
                     points[ 0 ].y,
                 ) )
-
-        #else:
-            #print( "Polygon closed: start=({}, {}) end=({}, {})".format(
-                #points[ 0 ].x, points[ 0 ].y,
-                #points[ -1 ].x, points[ -1 ].y,
-            #) )
 
         self.points = points
         self.calc_bbox()

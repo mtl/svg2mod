@@ -4,7 +4,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/svg2mod?color=informational&label=version&style=for-the-badge)](https://pypi.org/project/svg2mod/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/svg2mod?style=for-the-badge)](https://pypi.org/project/svg2mod/)
-[![PyPI - Downloads](https://img.shields.io/endpoint?logoColor=red&url=https%3A%2F%2Fmikej.tech%2Fpepy.php%3Fproject%3Dsvg2mod)](https://pypi.org/project/svg2mod/)
+[![PyPI - Downloads](https://img.shields.io/badge/dynamic/xml?style=for-the-badge&color=green&label=downloads&query=%2F%2F%2A%5Blocal-name%28%29%20%3D%20%27text%27%5D%5Blast%28%29%5D&suffix=%2Fmonth&url=https%3A%2F%2Fstatic.pepy.tech%2Fbadge%2Fsvg2mod%2Fmonth)](https://pypi.org/project/svg2mod/)
 
 
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/sodium-hydrogen?logo=github&style=for-the-badge)](https://github.com/sponsors/Sodium-Hydrogen)
@@ -81,13 +81,12 @@ optional arguments:
 svg2mod expects images saved in the uncompressed Inkscape SVG (i.e., not "plain SVG") format. This is so it can associate inkscape layers with kicad layers
 
 * Drawings should be to scale (1 mm in Inscape will be 1 mm in KiCad).  Use the --factor option to resize the resulting module(s) up or down from there.
-* Paths are fully supported Rect are partially supported.
+* Most elements are fully supported.
   * A path may have an outline and a fill.  (Colors will be ignored.)
   * A path may have holes, defined by interior segments within the path (see included examples).
   * 100% Transparent fills and strokes with be ignored.
-  * Rect supports rotations, but not corner radii.
   * Text Elements are partially supported
-* Groups may be used.  However, styles applied to groups (e.g., stroke-width) are not applied to contained drawing elements.  In these cases, it may be necessary to ungroup (and perhaps regroup) the elements.
+* Groups may be used. Styles applied to groups (e.g., stroke-width) are applied to contained drawing elements.
 * Layers must be named to match the target in kicad. The supported layers are listed below. They will be ignored otherwise.
 * __If there is an issue parsing an inkscape object or stroke convert it to a path.__
   * __Use Inkscape's "Path->Object To Path" and "Path->Stroke To Path" menu options to convert these elements into paths that will work.__
@@ -168,5 +167,3 @@ Supported Arguments:
 [^3]: Only works in Kicad versions >= v6.
 
 [^4]: The * can be { *, F, B, I } or any combination like FB or BI. These options are for Front, Back, and Internal.
-
-

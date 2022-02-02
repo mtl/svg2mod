@@ -58,9 +58,9 @@ def main():
     logging.getLogger("unfiltered").setLevel(logging.INFO)
 
     # This can be used sparingly as follows:
-    ##########
+    #---------
     # logging.getLogger("unfiltered").info("Message Here")
-    ##########
+    #---------
 
     if args.list_fonts:
         fonts = svg.Text.load_system_fonts()
@@ -84,19 +84,14 @@ def main():
             logging.critical("Error: decimal units only allowed with legacy output type")
             sys.exit( -1 )
 
-        #if args.include_reverse:
-            #print(
-                #"Warning: reverse footprint not supported or required for" +
-                #" pretty output format"
-            #)
-
     try:
         # Import the SVG:
         imported = Svg2ModImport(
             args.input_file_name,
             args.module_name,
             args.module_value,
-            args.ignore_hidden_layers,
+            args.ignore_hidden,
+            args.force_layer
         )
 
         # Pick an output file name if none was provided:
@@ -144,8 +139,6 @@ def main():
 
                 except Exception as e:
                     raise e
-                    #print( e.message )
-                    #exported = None
 
             # Write the module file:
             if exported is None:
@@ -240,11 +233,20 @@ def get_arguments():
 
     parser.add_argument(
         '-x', '--exclude-hidden',
-        dest = 'ignore_hidden_layers',
+        dest = 'ignore_hidden',
         action = 'store_const',
         const = True,
-        help = "Do not export hidden layers",
+        help = "Do not export hidden objects",
         default = False,
+    )
+
+    parser.add_argument(
+        '--force', '--force-layer',
+        type = str,
+        dest = 'force_layer',
+        metavar = 'LAYER',
+        help = "Force everything into the single provided layer",
+        default = None,
     )
 
     parser.add_argument(
@@ -271,7 +273,7 @@ def get_arguments():
         dest = 'precision',
         metavar = 'PRECISION',
         help = "Smoothness for approximating curves with line segments. Input is the approximate length for each line segment in SVG pixels (float)",
-        default = 10.0,
+        default = 5.0,
     )
     parser.add_argument(
         '--format',
@@ -335,6 +337,5 @@ def get_arguments():
 
 if __name__ == "__main__":
     main()
-
 
 #----------------------------------------------------------------------------
