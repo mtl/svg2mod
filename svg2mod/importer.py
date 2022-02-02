@@ -36,19 +36,13 @@ class Svg2ModImport:
         if items is None:
 
             items = self.svg.items
-            # self.svg.items = []
 
         for item in items[:]:
-
-            # if not isinstance( item, svg.Group ):
-            #     continue
 
             if hasattr(item, "hidden") and item.hidden :
                 if item.name:
                     logging.warning("Ignoring hidden SVG item: {}".format( item.name ) )
                 items.remove(item)
-            # elif item.name != "":
-            #     self.svg.items.append( item )
 
             if hasattr(item, "items") and item.items:
                 self._prune_hidden( item.items )
