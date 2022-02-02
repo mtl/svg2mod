@@ -49,10 +49,10 @@ def main():
     # Setup root logger to use terminal colored outputs as well as stdout and stderr
     coloredlogger.split_logger(logger)
 
-    if args.verbose_print:
-        logger.setLevel(logging.INFO)
-    elif args.debug_print:
+    if args.debug_print:
         logger.setLevel(logging.DEBUG)
+    elif args.verbose_print:
+        logger.setLevel(logging.INFO)
     else:
         logger.setLevel(logging.WARNING)
 

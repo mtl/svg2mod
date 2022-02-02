@@ -105,6 +105,9 @@ class Transformable:
             # Parse transform attribute to update self.matrix
             self.get_transformations(elt)
 
+        if self.style.get("display") == "none":
+            self.hidden = True
+
     def bbox(self):
         '''Bounding box of all points'''
         bboxes = [x.bbox() for x in self.items]
@@ -329,16 +332,12 @@ class Group(Transformable):
         Transformable.__init__(self, elt, *args, **kwargs)
 
         self.name = ""
-        self.hidden = False
         if elt is not None:
             for ident, value in elt.attrib.items():
 
                 ident = self.parse_name( ident )
                 if ident[ "name" ] == "label":
                     self.name = value
-                if ident[ "name" ] == "style":
-                    if re.search( r"display\s*:\s*none", value ):
-                        self.hidden = True
 
     @staticmethod
     def parse_name( tag ):

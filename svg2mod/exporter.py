@@ -213,6 +213,8 @@ class Svg2ModExport(ABC):
     def _prune( self, items = None ):
         '''Find and keep only the layers of interest.'''
 
+        empty_group_exception = items is None
+
         if items is None:
 
             self.layers = {}
@@ -254,11 +256,12 @@ class Svg2ModExport(ABC):
             logger.debug( "  Detailed names: [{}]".format( ", ".join(kept_layers[kept]) ) )
 
         # There are no elements to write so don't write
-        for name in self.layers:
-            if self.layers[name]:
-                break
-        else:
-            raise Exception("Not writing empty file. No valid items found.")
+        if empty_group_exception:
+            for name in self.layers:
+                if self.layers[name]:
+                    break
+            else:
+                raise Exception("Not writing empty file. No valid items found.")
 
     #------------------------------------------------------------------------
 
