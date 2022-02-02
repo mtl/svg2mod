@@ -20,11 +20,10 @@ from a svg object into a single continuous line
 '''
 
 import copy
-import logging
 from typing import List, Tuple
 
 from svg2mod import svg
-
+from svg2mod.coloredlogger import logger
 
 #----------------------------------------------------------------------------
 
@@ -203,7 +202,7 @@ class PolygonSegment:
 
 
         if len( points ) < 3:
-            logging.warning("Warning: Path segment has only {} points (not a polygon?)".format(len( points )))
+            logger.warning("Warning: Path segment has only {} points (not a polygon?)".format(len( points )))
 
         self.bbox = None
         self.calc_bbox()
@@ -279,7 +278,7 @@ class PolygonSegment:
         if len( segments ) < 1:
             return self.points
 
-        logging.debug( "  Inlining {} segments...".format( len( segments ) ) )
+        logger.debug( "  Inlining {} segments...".format( len( segments ) ) )
 
         segments.sort(reverse=True, key=lambda h: h.bbox[1].y)
 

@@ -20,16 +20,18 @@ of svg layers to be used with an instance of
 Svg2ModExport.
 '''
 
-import logging
 
 from svg2mod import svg
+from svg2mod.coloredlogger import logger, unfiltered_logger
 
+#----------------------------------------------------------------------------
 
 class Svg2ModImport:
     ''' An importer class to read in target svg,
     parse it, and keep only layers on interest.
     '''
 
+    #------------------------------------------------------------------------
 
     def _prune_hidden( self, items = None ):
 
@@ -41,11 +43,13 @@ class Svg2ModImport:
 
             if (hasattr(item, "hidden") and item.hidden ) or (hasattr(item, "style") and item.style.get("display") == "none"):
                 if hasattr(item, "name") and item.name:
-                    logging.warning("Ignoring hidden SVG item: {}".format( item.name ) )
+                    logger.warning("Ignoring hidden SVG item: {}".format( item.name ) )
                 items.remove(item)
 
             if hasattr(item, "items") and item.items:
                 self._prune_hidden( item.items )
+
+    #------------------------------------------------------------------------
 
     def __init__( self, file_name=None, module_name="svg2mod", module_value="G***", ignore_hidden=False, force_layer=None):
 
@@ -55,10 +59,10 @@ class Svg2ModImport:
         self.ignore_hidden = ignore_hidden
 
         if file_name:
-            logging.getLogger("unfiltered").info( "Parsing SVG..." )
+            unfiltered_logger.info( "Parsing SVG..." )
 
             self.svg = svg.parse( file_name )
-            logging.info("Document scaling: {} units per pixel".format(self.svg.viewport_scale))
+            logger.info("Document scaling: {} units per pixel".format(self.svg.viewport_scale))
         if force_layer:
             new_layer = svg.Group()
             new_layer.name = force_layer

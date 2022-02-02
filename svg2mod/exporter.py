@@ -23,13 +23,13 @@ the file information  used in kicad module files.
 import datetime
 import io
 import json
-import logging
 import os
 import re
 import time
 from abc import ABC, abstractmethod
 
 from svg2mod import svg
+from svg2mod.coloredlogger import logger, unfiltered_logger
 from svg2mod.importer import Svg2ModImport
 from svg2mod.svg2mod import PolygonSegment
 
@@ -46,6 +46,8 @@ class Svg2ModExport(ABC):
     The abstract methods are the file type specific
     example: pretty, legacy
     '''
+
+    #------------------------------------------------------------------------
 
     @property
     @abstractmethod
@@ -248,8 +250,8 @@ class Svg2ModExport(ABC):
                 self._prune( item.items )
 
         for kept in sorted(kept_layers.keys()):
-            logging.getLogger("unfiltered").info( "Found SVG layer: {}".format( kept ) )
-            logging.debug( "  Detailed SVG layers: {}".format( ", ".join(kept_layers[kept]) ) )
+            unfiltered_logger.info( "Found SVG layer: {}".format( kept ) )
+            logger.debug( "  Detailed names: [{}]".format( ", ".join(kept_layers[kept]) ) )
 
         # There are no elements to write so don't write
         for name in self.layers:
@@ -257,7 +259,6 @@ class Svg2ModExport(ABC):
                 break
         else:
             raise Exception("Not writing empty file. No valid items found.")
-
 
     #------------------------------------------------------------------------
 
@@ -273,7 +274,7 @@ class Svg2ModExport(ABC):
                 if isinstance(item, svg.Circle):
                     self._write_thru_hole(item, layer)
                 else:
-                    logging.warning( "Non Circle SVG element in drill layer: {}".format(item.__class__.__name__))
+                    logger.warning( "Non Circle SVG element in drill layer: {}".format(item.__class__.__name__))
 
             elif isinstance( item, (svg.Path, svg.Ellipse, svg.Rect, svg.Text)):
 
@@ -324,7 +325,7 @@ class Svg2ModExport(ABC):
                         elif len(inlinable) > 0:
                             points = inlinable[ 0 ].points
 
-                        logging.info( "  Writing {} with {} points".format(item.__class__.__name__, len( points ) ))
+                        logger.info( "  Writing {} with {} points".format(item.__class__.__name__, len( points ) ))
 
                         self._write_polygon(
                             points, layer, fill, stroke, stroke_width
@@ -336,16 +337,16 @@ class Svg2ModExport(ABC):
 
                 if len ( segments ) == 1:
 
-                    logging.info( "  Writing {} with {} points".format(item.__class__.__name__, len( points ) ))
+                    logger.info( "  Writing {} with {} points".format(item.__class__.__name__, len( points ) ))
 
                     self._write_polygon(
                         points, layer, fill, stroke, stroke_width
                     )
                 else:
-                    logging.info( "  Skipping {} with 0 points".format(item.__class__.__name__))
+                    logger.info( "  Skipping {} with 0 points".format(item.__class__.__name__))
 
             else:
-                logging.warning( "Unsupported SVG element: {}".format(item.__class__.__name__))
+                logger.warning( "Unsupported SVG element: {}".format(item.__class__.__name__))
 
 
     #------------------------------------------------------------------------
@@ -463,7 +464,7 @@ class Svg2ModExport(ABC):
         self._calculate_translation()
 
         if self.file_name:
-            logging.getLogger("unfiltered").info( "Writing module file: {}".format( self.file_name ) )
+            unfiltered_logger.info( "Writing module file: {}".format( self.file_name ) )
             self.output_file = open( self.file_name, 'w' )
         else:
             self.output_file = io.StringIO()
@@ -737,7 +738,7 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
 
     def _parse_output_file( self ):
 
-        logging.info( "Parsing module file: {}".format( self.file_name ) )
+        logger.info( "Parsing module file: {}".format( self.file_name ) )
         module_file = open( self.file_name, 'r' )
         lines = module_file.readlines()
         module_file.close()
@@ -808,7 +809,7 @@ class Svg2ModExportLegacyUpdater( Svg2ModExportLegacy ):
         m = re.match( r'\$MODULE[\s]+([^\s]+)[\s]*', lines[ index ] )
         module_name = m.group( 1 )
 
-        logging.info( "  Reading module {}".format( module_name ) )
+        logger.info( "  Reading module {}".format( module_name ) )
 
         index += 1
         module_lines = []
@@ -1009,7 +1010,7 @@ class Svg2ModExportPretty( Svg2ModExport ):
                         if allowed in self.keepout_allowed:
                             attrs["allowed"].append(allowed)
                         else:
-                            logging.warning("Invalid allowed option in keepout: {} in {}".format(allowed, arg))
+                            logger.warning("Invalid allowed option in keepout: {} in {}".format(allowed, arg))
                 elif re.match(r'^\w+\.Cu', name) and re.match(r'^pad(:(\d+|mask|paste))?', arg, re.I):
                     if arg.lower() == "pad":
                         attrs["copper_pad"] = True
@@ -1027,9 +1028,9 @@ class Svg2ModExportPretty( Svg2ModExport ):
                                 if not attrs.get("copper_pad"):
                                     attrs["copper_pad"] = True
                             else:
-                                logging.warning("Invalid pad option '{}' for layer {}".format(opt, name))
+                                logger.warning("Invalid pad option '{}' for layer {}".format(opt, name))
                 else:
-                    logging.warning("Unexpected option: {} for {}".format(arg, item_name[0]))
+                    logger.warning("Unexpected option: {} for {}".format(arg, item_name[0]))
         if attrs:
             return name+":"+json.dumps(attrs)
         return name

@@ -27,11 +27,14 @@ import sys
 import traceback
 
 import svg2mod.coloredlogger as coloredlogger
+from svg2mod.coloredlogger import logger, unfiltered_logger
 from svg2mod import svg
-from svg2mod.exporter import (DEFAULT_DPI, Svg2ModExportLatest, Svg2ModExportLegacy,
-                              Svg2ModExportLegacyUpdater, Svg2ModExportPretty)
+from svg2mod.exporter import (DEFAULT_DPI, Svg2ModExportLatest,
+                              Svg2ModExportLegacy, Svg2ModExportLegacyUpdater,
+                              Svg2ModExportPretty)
 from svg2mod.importer import Svg2ModImport
 
+#----------------------------------------------------------------------------
 
 def main():
     '''This function handles the scripting package calls.
@@ -44,33 +47,24 @@ def main():
 
 
     # Setup root logger to use terminal colored outputs as well as stdout and stderr
-    coloredlogger.split_logger(logging.root)
+    coloredlogger.split_logger(logger)
 
     if args.verbose_print:
-        logging.root.setLevel(logging.INFO)
+        logger.setLevel(logging.INFO)
     elif args.debug_print:
-        logging.root.setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
     else:
-        logging.root.setLevel(logging.WARNING)
-
-    # Add a second logger that will bypass the log level and output anyway
-    # It is a good practice to send only messages level INFO via this logger
-    logging.getLogger("unfiltered").setLevel(logging.INFO)
-
-    # This can be used sparingly as follows:
-    #---------
-    # logging.getLogger("unfiltered").info("Message Here")
-    #---------
+        logger.setLevel(logging.WARNING)
 
     if args.list_fonts:
         fonts = svg.Text.load_system_fonts()
-        logging.getLogger("unfiltered").info("Font Name: list of supported styles.")
+        unfiltered_logger.info("Font Name: list of supported styles.")
         for font in fonts:
             fnt_text = f"  {font}:"
             for styles in fonts[font]:
                 fnt_text += f" {styles},"
             fnt_text = fnt_text.strip(",")
-            logging.getLogger("unfiltered").info(fnt_text)
+            unfiltered_logger.info(fnt_text)
         sys.exit(0)
     if args.default_font:
         svg.Text.default_font = args.default_font
@@ -81,7 +75,7 @@ def main():
     if pretty:
 
         if not use_mm:
-            logging.critical("Error: decimal units only allowed with legacy output type")
+            logger.critical("Error: decimal units only allowed with legacy output type")
             sys.exit( -1 )
 
     try:
@@ -161,7 +155,7 @@ def main():
         if args.debug_print:
             traceback.print_exc()
         else:
-            logging.critical(f'Unhandled exception (Exiting)\n {type(e).__name__}: {e} ')
+            logger.critical(f'Unhandled exception (Exiting)\n {type(e).__name__}: {e} ')
         exit(-1)
 
 #----------------------------------------------------------------------------
@@ -330,8 +324,6 @@ def get_arguments():
     )
 
     return parser.parse_args(), parser
-
-    #------------------------------------------------------------------------
 
 #----------------------------------------------------------------------------
 

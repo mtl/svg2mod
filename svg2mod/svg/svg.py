@@ -25,7 +25,6 @@ import itertools
 import json
 import logging
 import math
-from multiprocessing import parent_process
 import operator
 import os
 import platform
@@ -37,6 +36,7 @@ from typing import List, Tuple
 from fontTools.misc import loggingTools
 from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.ttLib import ttFont
+from svg2mod.coloredlogger import logger
 
 from .geometry import Angle, Bezier, MoveTo, Point, Segment, simplify_segment
 
@@ -98,7 +98,7 @@ class Transformable:
                             value = list(re.search(r'(\d+\.?\d*)(\D+)?', value).groups())
                             self.style[name] = float(value[0])
                             if value[1] and value[1] not in unit_convert:
-                                logging.warning("Style '{}' has an unexpected unit: {}".format(style, value[1]))
+                                logger.warning("Style '{}' has an unexpected unit: {}".format(style, value[1]))
                         else:
                             self.style[name] = value
 
@@ -139,7 +139,7 @@ class Transformable:
             op = op.strip()
             # Keep only numbers
             arg = [float(x) for x in re.findall(number_re, arg)]
-            logging.debug('transform: ' + op + ' '+ str(arg))
+            logger.debug('transform: ' + op + ' '+ str(arg))
 
             if op == 'matrix':
                 self.matrix *= Matrix(arg)
@@ -286,7 +286,7 @@ class Svg(Transformable):
             if self.root.get('width') is None or self.root.get('height') is None:
                 width = float(view_box[2])
                 height = float(view_box[3])
-                logging.warning("Unable to find width or height properties. Using viewBox.")
+                logger.warning("Unable to find width or height properties. Using viewBox.")
 
             sx = width / float(view_box[2])
             sy = height / float(view_box[3])
@@ -296,7 +296,7 @@ class Svg(Transformable):
             top_group.matrix = Matrix([sx, 0, 0, sy, tx, ty])
         if ( self.root.get("width") is None or self.root.get("height") is None ) \
                 and self.root.get("viewBox") is None:
-            logging.critical("Fatal Error: Unable to find SVG dimensions. Exiting.")
+            logger.critical("Fatal Error: Unable to find SVG dimensions. Exiting.")
             sys.exit(-1)
 
         # Parse XML elements hierarchically with groups <g>
@@ -359,7 +359,7 @@ class Group(Transformable):
         for elt in element:
             elt_class = svgClass.get(elt.tag, None)
             if elt_class is None:
-                logging.debug('No handler for element %s' % elt.tag)
+                logger.debug('No handler for element %s' % elt.tag)
                 continue
             # instantiate elt associated class (e.g. <path>: item = Path(elt)
             item = elt_class(elt, parent_styles=self.style)
@@ -572,14 +572,14 @@ class Path(Transformable):
                 flags = pathlst.pop().strip()
                 large_arc_flag = flags[0]
                 if large_arc_flag not in '01':
-                    logging.error("Arc parsing failure")
+                    logger.error("Arc parsing failure")
                     break
 
                 if len(flags) > 1:  flags = flags[1:].strip()
                 else:               flags = pathlst.pop().strip()
                 sweep_flag = flags[0]
                 if sweep_flag not in '01':
-                    logging.error("Arc parsing failure")
+                    logger.error("Arc parsing failure")
                     break
 
                 if len(flags) > 1:  x = flags[1:]
@@ -1175,7 +1175,7 @@ class Text(Transformable):
             if Text.default_font is None:
                 global _font_warning_sent
                 if not _font_warning_sent:
-                    logging.error("Unable to find font because no font was specified.")
+                    logger.error("Unable to find font because no font was specified.")
                     _font_warning_sent = True
                 return None
             self.font_family = Text.default_font
@@ -1191,7 +1191,7 @@ class Text(Transformable):
                 break
         if font_files is None:
             # We are unable to find a font and since there is no default font stop building font data
-            logging.error("Unable to find font(s) \"{}\"{}".format(
+            logger.error("Unable to find font(s) \"{}\"{}".format(
                 self.font_family,
                 " and no default font specified" if Text.default_font is None else f" or default font \"{Text.default_font}\""
             ))
@@ -1215,7 +1215,7 @@ class Text(Transformable):
         tar_font = list(filter(None, [font_files.get(style) for style in search]))
         if len(tar_font) == 0 and len(font_files.keys()) == 1:
             tar_font = [font_files[list(font_files.keys())[0]]]
-            logging.warning("Font \"{}\" does not natively support style \"{}\" using \"{}\" instead".format(
+            logger.warning("Font \"{}\" does not natively support style \"{}\" using \"{}\" instead".format(
                 target_font, search[0], list(font_files.keys())[0]))
         elif len(tar_font) == 0 and italic and bold:
             orig_search = search[0]
@@ -1227,7 +1227,7 @@ class Text(Transformable):
             for style in search:
                 if font_files.get(style) is not None:
                     tar_font = [font_files[style]]
-                    logging.warning("Font \"{}\" does not natively support style \"{}\" using \"{}\" instead".format(
+                    logger.warning("Font \"{}\" does not natively support style \"{}\" using \"{}\" instead".format(
                         target_font, orig_search, style))
                     break
         return tar_font[0]
@@ -1268,7 +1268,7 @@ class Text(Transformable):
                 pathbuf = ""
                 try: glf = ttf.getGlyphSet()[ttf.getBestCmap()[ord(char)]]
                 except KeyError:
-                    logging.warning('Unsuported character in <text> element "{}"'.format(char))
+                    logger.warning('Unsuported character in <text> element "{}"'.format(char))
                     #txt = txt.replace(char, "")
                     continue
 
@@ -1349,7 +1349,7 @@ class Text(Transformable):
             Text._system_fonts = {}
         if len(Text._system_fonts.keys()) < 1:
             fonts_files = []
-            logging.info("Loading system fonts.")
+            logger.info("Loading system fonts.")
             for path in Text._os_font_paths[platform.system()]:
                 try:
                     fonts_files.extend([os.path.join(dp, f) for dp, dn, fn in os.walk(os.path.expanduser(path)) for f in fn])
@@ -1367,7 +1367,7 @@ class Text(Transformable):
                         Text._system_fonts[name][style] = ffile
                 except:
                     pass
-            logging.debug(f"  Found {len(Text._system_fonts.keys())} fonts in system")
+            logger.debug(f"  Found {len(Text._system_fonts.keys())} fonts in system")
         return Text._system_fonts
 
 
