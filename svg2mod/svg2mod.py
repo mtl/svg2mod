@@ -194,15 +194,12 @@ class PolygonSegment:
 
     def __init__( self, points:List):
 
-        self.points = [points.pop(0)]
+        self.points = [points[0]]
 
         for point in points:
             if self.points[-1] != point:
                 self.points.append(point)
 
-
-        if len( points ) < 3:
-            logger.warning("Warning: Path segment has only {} points (not a polygon?)".format(len( points )))
 
         self.bbox = None
         self.calc_bbox()

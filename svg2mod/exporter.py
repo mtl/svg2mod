@@ -20,6 +20,7 @@ the file information  used in kicad module files.
 '''
 
 
+import copy
 import datetime
 import io
 import json
@@ -75,9 +76,6 @@ class Svg2ModExport(ABC):
 
     @abstractmethod
     def _write_polygon_header( self, points, layer ):pass
-
-    @abstractmethod
-    def _write_polygon( self, points, layer, fill, stroke, stroke_width ):pass
 
     @abstractmethod
     def _write_polygon_footer( self, layer, stroke_width, fill=True):pass
@@ -395,6 +393,33 @@ class Svg2ModExport(ABC):
 
     #------------------------------------------------------------------------
 
+    def _write_polygon( self, points, layer, fill, stroke, stroke_width ):
+
+        if fill and len(points) > 2:
+            self._write_polygon_filled(
+                points, layer, stroke_width
+            )
+            return
+
+        # Polygons with a fill and stroke are drawn with the filled polygon above
+        if stroke:
+            if len(points) == 1:
+                points.append(copy.copy(points[0]))
+
+            self._write_polygon_outline(
+                points, layer, stroke_width
+            )
+            return
+
+        if len(points) < 3:
+            logger.debug("  Not writing non-polygon with no stroke.")
+        else:
+            logger.debug("  Polygon has no stroke or fill. Skipping.")
+
+
+    #------------------------------------------------------------------------
+
+
     def _write_polygon_filled( self, points, layer, stroke_width = 0.0 ):
 
         self._write_polygon_header( points, layer )
@@ -634,22 +659,6 @@ T1 0 {5} {2} {2} 0 {3} N I 21 "{4}"
             self._write_module( front = False )
 
         self.output_file.write( "$EndLIBRARY" )
-
-
-    #------------------------------------------------------------------------
-
-    def _write_polygon( self, points, layer, fill, stroke, stroke_width ):
-
-        if fill:
-            self._write_polygon_filled(
-                points, layer
-            )
-
-        if stroke:
-
-            self._write_polygon_outline(
-                points, layer, stroke_width
-            )
 
 
     #------------------------------------------------------------------------
@@ -1118,24 +1127,6 @@ class Svg2ModExportPretty( Svg2ModExport ):
             self._write_polygon_point( point )
 
         self._write_polygon_footer( layer, stroke_width )
-
-    #------------------------------------------------------------------------
-
-    def _write_polygon( self, points, layer, fill, stroke, stroke_width ):
-
-        if fill:
-            self._write_polygon_filled(
-                points, layer, stroke_width
-            )
-
-        # Polygons with a fill and stroke are drawn with the filled polygon
-        # above:
-        if stroke and not fill:
-
-            self._write_polygon_outline(
-                points, layer, stroke_width
-            )
-
 
     #------------------------------------------------------------------------
 
