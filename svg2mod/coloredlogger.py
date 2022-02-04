@@ -1,4 +1,4 @@
-# Copyright (C) 2021 -- svg2mod developers < GitHub.com / svg2mod >
+# Copyright (C) 2022 -- svg2mod developers < GitHub.com / svg2mod >
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,9 +18,33 @@ A simple modification to the formatter class in the python logger to allow
 ANSI color codes based on the logged message's level
 '''
 
-import sys
 import logging
+import sys
 
+#----------------------------------------------------------------------------
+
+#Setup and configure svg2mod and svg2mod-unfiltered loggers
+
+logger = logging.getLogger("svg2mod")
+unfiltered_logger = logging.getLogger("svg2mod-unfiltered")
+_sh = logging.StreamHandler(sys.stdout)
+
+logger.addHandler(_sh)
+unfiltered_logger.addHandler(_sh)
+
+logger.setLevel(logging.DEBUG)
+
+# Add a second logger that will bypass the log level and output anyway
+# It is a good practice to send only messages level INFO via this logger
+unfiltered_logger.setLevel(logging.INFO)
+
+# This can be used sparingly as follows:
+#---------
+# unfiltered_logger.info("Message Here")
+#---------
+
+
+#----------------------------------------------------------------------------
 
 class Formatter(logging.Formatter):
     '''Extend formatter to add colored output functionality '''
@@ -35,8 +59,12 @@ class Formatter(logging.Formatter):
     }
     reset = "\033[0m" # Reset the terminal back to default color/emphasis
 
+    #------------------------------------------------------------------------
+
     def __init__(self, fmt="%(message)s", datefmt=None, style="%"):
         super().__init__(fmt, datefmt, style)
+
+    #------------------------------------------------------------------------
 
     def format(self, record):
         '''Overwrite the format function.
@@ -44,16 +72,24 @@ class Formatter(logging.Formatter):
         color, sends the message to the super.format, and
         finally returns the style to the original format
         '''
-        fmt_org = self._style._fmt
-        self._style._fmt = Formatter.color[record.levelno] + fmt_org + Formatter.reset
+        if sys.stdout.isatty():
+            fmt_org = self._style._fmt
+            self._style._fmt = Formatter.color[record.levelno] + fmt_org + Formatter.reset
         result = logging.Formatter.format(self, record)
-        self._style._fmt = fmt_org
+        if sys.stdout.isatty():
+            self._style._fmt = fmt_org
         return result
+
+    #------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------
 
 def split_logger(logger, formatter=Formatter(), brkpoint=logging.WARNING):
     '''This will split logging messages at the specified break point. Anything higher
     will be sent to sys.stderr and everything else to sys.stdout
     '''
+    for hndl in logger.handlers:
+        logger.removeHandler(hndl)
 
     hdlrerr = logging.StreamHandler(sys.stderr)
     hdlrerr.addFilter(lambda msg: brkpoint <= msg.levelno)
@@ -66,4 +102,4 @@ def split_logger(logger, formatter=Formatter(), brkpoint=logging.WARNING):
     logger.addHandler(hdlrerr)
     logger.addHandler(hdlrout)
 
-
+#----------------------------------------------------------------------------
