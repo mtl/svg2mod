@@ -1015,7 +1015,9 @@ class Svg2ModExportPretty( Svg2ModExport ):
         if len(item_name) == 2 and item_name[1]:
             for arg in item_name[1].split(';'):
                 arg = arg.strip(' ,:')
+
                 # This is used in Svg2ModExportLatest as it is a breaking change
+                # Keepout allowed items
                 if name == "Keepout" and re.match(r'^allowed:\w+', arg, re.I):
                     attrs["allowed"] = []
                     for allowed in arg.lower().split(":", 1)[1].split(','):
@@ -1023,6 +1025,11 @@ class Svg2ModExportPretty( Svg2ModExport ):
                             attrs["allowed"].append(allowed)
                         else:
                             logger.warning("Invalid allowed option in keepout: {} in {}".format(allowed, arg))
+                # Zone hatch patterns
+                elif name == "Keepout" and re.match(r'^hatch:(none|edge|full)$', arg, re.I):
+                    attrs["hatch"] = arg.split(":", 1)[1]
+
+                #Copper pad attributes
                 elif re.match(r'^\w+\.Cu', name) and re.match(r'^pad(:(\d+|mask|paste))?', arg, re.I):
                     if arg.lower() == "pad":
                         attrs["copper_pad"] = True
@@ -1175,21 +1182,22 @@ class Svg2ModExportPretty( Svg2ModExport ):
                 layers = options["layers"][:] + ['In{}'.format(i) for i in range(1,31)]
 
 
-            self.output_file.write( '''\n  (zone (net 0) (net_name "") (layers "{0}.Cu") (hatch edge {1:.6f})
+            self.output_file.write( '''\n  (zone (net 0) (net_name "") (layers "{0}.Cu") (hatch {1} {2:.6f})
     (connect_pads (clearance 0))
-    (min_thickness {2:.6f})
-    (keepout ({3}allowed))
-    (fill (thermal_gap {1:.6f}) (thermal_bridge_width {1:.6f}))
+    (min_thickness {3:.6f})
+    (keepout ({4}allowed))
+    (fill (thermal_gap {2:.6f}) (thermal_bridge_width {2:.6f}))
     (polygon
       (pts\n'''.format(
                     '.Cu" "'.join(layers), #0
-                    stroke_width, #1
-                    stroke_width/2, #2
+                    options["hatch"] if options.get("hatch") else "full", #1
+                    stroke_width, #2
+                    stroke_width/2, #3
                     "allowed) (".join(
                         [i+" "+(
                             "not_" if not options.get("allowed") or i not in options["allowed"] else ""
                         ) for i in self.keepout_allowed]
-                    ), #3
+                    ), #4
                 )
             )
             self._special_footer = "      )\n    )\n  )"
