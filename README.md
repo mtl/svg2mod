@@ -23,6 +23,11 @@ It includes a modified version of [cjlano's python SVG parser and drawing module
 
 ```pip install svg2mod```
 
+#### Do not want to install the application? 
+Use the web application instead: https://inputblackboxoutput-streamlit-svg2mod-app-fszqih.streamlitapp.com/
+
+Please request features and report bugs related to this web application at this [GitHub repository](https://github.com/InputBlackBoxOutput/streamlit-svg2mod)
+
 ## Showcase
 
 We'd love to see the amazing projects that use svg2mod.
