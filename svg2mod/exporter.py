@@ -259,6 +259,7 @@ class Svg2ModExport(ABC):
                 if self.layers[name]:
                     break
             else:
+                logger.warning("No valid items found. Maybe try --force Layer.Name")
                 raise Exception("Not writing empty file. No valid items found.")
 
     #------------------------------------------------------------------------
