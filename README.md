@@ -174,6 +174,12 @@ Supported Arguments:
   separated list of any of the following options can be used:
   `tracks`,`vias`,`pads`,`copperpour`,`footprints`
   
+* Hatch
+
+  Keepout areas have different hatching styles. This allows customization
+  of the appearance of hatching when converting from an svg, Ex: `F.Keepout:Hatch:edge`.
+  All available hatch options are `none`, `edge`, `full`.
+  
 [^1]: These layers can have arguments when svg2mod is in pretty mode
 
 [^2]: Drills can only be svg circle objects. The stroke width in `Drill.Cu` is the pad size and the fill is the drill size.
