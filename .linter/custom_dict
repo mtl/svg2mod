@@ -45,3 +45,8 @@ thru
 Faux
 getLogger
 keepout
+fonttools
+adhes
+dwgs
+cmts
+copperpour
