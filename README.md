@@ -25,6 +25,12 @@ output in KiCad's legacy or s-expression (i.e., pretty) formats.
 
 ```pip install svg2mod```
 
+### Do not want to install the application? 
+
+Use the web application instead: 
+* [svg2mod.streamlitapp.com](https://inputblackboxoutput-streamlit-svg2mod-app-fszqih.streamlitapp.com/)
+* [svg2mod.com](https://svg2mod.com/)
+
 ## Showcase
 
 We'd love to see the amazing projects that use svg2mod.
