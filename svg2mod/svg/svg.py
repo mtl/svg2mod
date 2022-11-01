@@ -78,8 +78,8 @@ class Transformable:
         self.name = ""
         # Unit transformation matrix on init
         self.matrix = Matrix()
-        self.scalex = 1
-        self.scaley = 1
+        self.xscale = 1
+        self.yscale = 1
         self.style = {} if not parent_styles and not isinstance(parent_styles, dict) else parent_styles.copy()
         self.rotation = 0
         self.viewport = Point(800, 600) # default viewport is 800x600
@@ -131,13 +131,13 @@ class Transformable:
 
     def bbox(self):
         '''Bounding box of all points'''
-        bboxes = [x.bbox() for x in self.items]
-        if len( bboxes ) < 1:
+        b_boxes = [x.bbox() for x in self.items]
+        if len( b_boxes ) < 1:
             return (Point(0, 0), Point(0, 0))
-        xmin = min([b[0].x for b in bboxes])
-        xmax = max([b[1].x for b in bboxes])
-        ymin = min([b[0].y for b in bboxes])
-        ymax = max([b[1].y for b in bboxes])
+        xmin = min([b[0].x for b in b_boxes])
+        xmax = max([b[1].x for b in b_boxes])
+        ymin = min([b[0].y for b in b_boxes])
+        ymax = max([b[1].y for b in b_boxes])
 
         return (Point(xmin,ymin), Point(xmax,ymax))
 
@@ -178,18 +178,18 @@ class Transformable:
                 sx = arg[0]
                 if len(arg) == 1: sy = sx
                 else: sy = arg[1]
-                self.scalex *= sx
-                self.scaley *= sy
+                self.xscale *= sx
+                self.yscale *= sy
                 self.matrix *= Matrix([sx, 0, 0, sy, 0, 0])
 
             if op == 'rotate':
                 self.rotation += arg[0]
-                cosa = math.cos(math.radians(arg[0]))
-                sina = math.sin(math.radians(arg[0]))
+                cos_a = math.cos(math.radians(arg[0]))
+                sin_a = math.sin(math.radians(arg[0]))
                 if len(arg) != 1:
                     tx, ty = arg[1:3]
                     self.matrix *= Matrix([1, 0, 0, 1, tx, ty])
-                self.matrix *= Matrix([cosa, sina, -sina, cosa, 0, 0])
+                self.matrix *= Matrix([cos_a, sin_a, -sin_a, cos_a, 0, 0])
                 if len(arg) != 1:
                     self.matrix *= Matrix([1, 0, 0, 1, -tx, -ty])
 
@@ -459,31 +459,31 @@ class Path(Transformable):
         if elt is not None:
             self.parse(elt.get('d'))
 
-    def parse(self, pathstr:str):
+    def parse(self, path_str:str):
         """Parse svg path string and build elements list"""
 
-        pathlst = re.findall(number_re + r"|\ *[%s]\ *" % Path.COMMANDS, pathstr)
+        path_list = re.findall(number_re + r"|\ *[%s]\ *" % Path.COMMANDS, path_str)
 
-        pathlst.reverse()
+        path_list.reverse()
 
         command = None
         current_pt = Point(0,0)
         start_pt = None
 
-        while pathlst:
-            if pathlst[-1].strip() in Path.COMMANDS:
+        while path_list:
+            if path_list[-1].strip() in Path.COMMANDS:
                 last_command = command
-                command = pathlst.pop().strip()
+                command = path_list.pop().strip()
                 absolute = (command == command.upper())
                 command = command.upper()
             else:
                 if command is None:
-                    raise ValueError("No command found at %d" % len(pathlst))
+                    raise ValueError("No command found at %d" % len(path_list))
 
             if command == 'M':
             # MoveTo
-                x = pathlst.pop()
-                y = pathlst.pop()
+                x = path_list.pop()
+                y = path_list.pop()
                 pt = Point(x, y)
                 if absolute:
                     current_pt = pt
@@ -511,9 +511,9 @@ class Path(Transformable):
                     x,y = (0,0)
 
                 if command in 'LH':
-                    x = pathlst.pop()
+                    x = path_list.pop()
                 if command in 'LV':
-                    y = pathlst.pop()
+                    y = path_list.pop()
 
                 pt = Point(x, y)
                 if not absolute:
@@ -527,8 +527,8 @@ class Path(Transformable):
                 bezier_pts = []
                 bezier_pts.append(current_pt)
                 for _ in range(1,dimension[command]):
-                    x = pathlst.pop()
-                    y = pathlst.pop()
+                    x = path_list.pop()
+                    y = path_list.pop()
                     pt = Point(x, y)
                     if not absolute:
                         pt += current_pt
@@ -539,9 +539,9 @@ class Path(Transformable):
 
             elif command in 'TS':
                 # number of points to read
-                nbpts = {'T':1, 'S':2}
+                num_pts = {'T':1, 'S':2}
                 # the control point, from previous Bezier to mirror
-                ctrlpt = {'T':1, 'S':2}
+                ctrl_pt = {'T':1, 'S':2}
                 # last command control
                 last = {'T': 'QT', 'S':'CS'}
 
@@ -549,16 +549,16 @@ class Path(Transformable):
                 bezier_pts.append(current_pt)
 
                 if last_command in last[command]:
-                    pt0 = self.items[-1].control_point(ctrlpt[command])
+                    pt0 = self.items[-1].control_point(ctrl_pt[command])
                 else:
                     pt0 = current_pt
                 pt1 = current_pt
                 # Symmetrical of pt1 against pt0
                 bezier_pts.append(pt1 + pt1 - pt0)
 
-                for _ in range(0,nbpts[command]):
-                    x = pathlst.pop()
-                    y = pathlst.pop()
+                for _ in range(0,num_pts[command]):
+                    x = path_list.pop()
+                    y = path_list.pop()
                     pt = Point(x, y)
                     if not absolute:
                         pt += current_pt
@@ -568,34 +568,34 @@ class Path(Transformable):
                 current_pt = pt
 
             elif command == 'A':
-                rx = pathlst.pop()
-                ry = pathlst.pop()
-                xrot = pathlst.pop()
+                rx = path_list.pop()
+                ry = path_list.pop()
+                x_rotation = path_list.pop()
                 # Arc flags are not necessarily separated numbers
-                flags = pathlst.pop().strip()
+                flags = path_list.pop().strip()
                 large_arc_flag = flags[0]
                 if large_arc_flag not in '01':
                     logger.error("Arc parsing failure")
                     break
 
                 if len(flags) > 1:  flags = flags[1:].strip()
-                else:               flags = pathlst.pop().strip()
+                else:               flags = path_list.pop().strip()
                 sweep_flag = flags[0]
                 if sweep_flag not in '01':
                     logger.error("Arc parsing failure")
                     break
 
                 if len(flags) > 1:  x = flags[1:]
-                else:               x = pathlst.pop()
-                y = pathlst.pop()
+                else:               x = path_list.pop()
+                y = path_list.pop()
                 end_pt = Point(x, y)
                 if not absolute: end_pt += current_pt
                 self.items.append(
-                    Arc(current_pt, rx, ry, xrot, large_arc_flag, sweep_flag, end_pt))
+                    Arc(current_pt, rx, ry, x_rotation, large_arc_flag, sweep_flag, end_pt))
                 current_pt = end_pt
 
             else:
-                pathlst.pop()
+                path_list.pop()
 
     def __str__(self):
         return '\n'.join(str(x) for x in self.items)
@@ -722,7 +722,7 @@ class Ellipse(Transformable):
         '''
         if self.arc:
             return Transformable.bbox(self)
-        
+
         points = self.segments((self.rx+self.ry) / 8)
         points = list(itertools.chain.from_iterable(points))
 
@@ -762,8 +762,8 @@ class Ellipse(Transformable):
     def segments(self, precision=0) -> List[Segment]:
         '''Flatten all curves to segments with target length of precision'''
         if self.arc:
-            segs = self.path.segments(precision)
-            return segs
+            segments = self.path.segments(precision)
+            return segments
         if max(self.rx, self.ry) < precision:
             return [[self.center]]
 
@@ -791,12 +791,12 @@ class Arc(Ellipse):
     path data for an arc into an object that can be flattened.
     '''
 
-    def __init__(self, start_pt, rx, ry, xrot, large_arc_flag, sweep_flag, end_pt):
+    def __init__(self, start_pt, rx, ry, x_rotation, large_arc_flag, sweep_flag, end_pt):
         Ellipse.__init__(self, None)
         try:
             self.rx = float(rx)
             self.ry = float(ry)
-            self.rotation = float(xrot)
+            self.rotation = float(x_rotation)
             self.large_arc_flag = large_arc_flag=='1'
             self.sweep_flag = sweep_flag=='1'
         except:
@@ -804,12 +804,12 @@ class Arc(Ellipse):
         self.end_pts = [start_pt, end_pt]
         self.angles = []
 
-        self.calcuate_center()
+        self.calculate_center()
 
     def __repr__(self):
         return '<Arc ' + self.id + '>'
 
-    def calcuate_center(self):
+    def calculate_center(self):
         '''Calculate the center point of the arc from the
         non-intuitively provided data in an svg path.
 
@@ -887,12 +887,12 @@ class Arc(Ellipse):
 
         # finish solving the quadratic equation and find the corresponding points on the intersection line
         elif root == 0:
-            xroot = (-qb+math.sqrt(root))/(2*qa)
-            point = Point(xroot, xroot*m + b)
+            x_root = (-qb+math.sqrt(root))/(2*qa)
+            point = Point(x_root, x_root*m + b)
         # Using the provided large_arc and sweep flags to choose the correct root
         else:
-            xroots = [(-qb+math.sqrt(root))/(2*qa), (-qb-math.sqrt(root))/(2*qa)]
-            points = [Point(xroots[0], xroots[0]*m + b), Point(xroots[1], xroots[1]*m + b)]
+            x_roots = [(-qb+math.sqrt(root))/(2*qa), (-qb-math.sqrt(root))/(2*qa)]
+            points = [Point(x_roots[0], x_roots[0]*m + b), Point(x_roots[1], x_roots[1]*m + b)]
             # Calculate the angle of the beginning point to the end point
 
             # If counterclockwise the two angles are the angle is within 180 degrees of each other:
@@ -1332,10 +1332,10 @@ class Text(Transformable):
             path = []
             for char in text:
 
-                pathbuf = ""
+                path_buff = ""
                 try: glf = ttf.getGlyphSet()[ttf.getBestCmap()[ord(char)]]
                 except KeyError:
-                    logger.warning('Unsuported character in <text> element "{}"'.format(char))
+                    logger.warning('Unsupported character in <text> element "{}"'.format(char))
                     #txt = txt.replace(char, "")
                     continue
 
@@ -1343,11 +1343,11 @@ class Text(Transformable):
                 glf.draw(pen)
 
                 for cmd in pen._commands:
-                    pathbuf += cmd + ' '
+                    path_buff += cmd + ' '
 
-                if len(pathbuf) > 0:
+                if len(path_buff) > 0:
                     path.append(Path())
-                    path[-1].parse(pathbuf)
+                    path[-1].parse(path_buff)
                     # Apply the scaling then the translation
                     translate = Matrix([1,0,0,-1,offset.x,size+attrib.origin.y]) * Matrix([scale,0,0,scale,0,0])
                     # This queues the translations until .transform() is called
@@ -1367,11 +1367,11 @@ class Text(Transformable):
         if self.paths is None or len(self.paths) == 0:
             return [Point(0,0),Point(0,0)]
 
-        bboxes = [path.bbox() for paths in self.paths for path in paths]
+        b_boxes = [path.bbox() for paths in self.paths for path in paths]
 
         return (
-            Point(min(bboxes, key=lambda v: v[0].x)[0].x, min(bboxes, key=lambda v: v[0].y)[0].y),
-            Point(max(bboxes, key=lambda v: v[1].x)[1].x, max(bboxes, key=lambda v: v[1].y)[1].y),
+            Point(min(b_boxes, key=lambda v: v[0].x)[0].x, min(b_boxes, key=lambda v: v[0].y)[0].y),
+            Point(max(b_boxes, key=lambda v: v[1].x)[1].x, max(b_boxes, key=lambda v: v[1].y)[1].y),
         )
 
     def transform(self, matrix=None):
@@ -1395,11 +1395,11 @@ class Text(Transformable):
         with provide precision.
         This will only work if there are available paths.
         '''
-        segs = []
+        segments = []
         for paths in self.paths:
             for path in paths:
-                segs.extend(path.segments(precision))
-        return segs
+                segments.extend(path.segments(precision))
+        return segments
 
     @staticmethod
     def load_system_fonts(reload:bool=False) -> List[dict]:
@@ -1423,15 +1423,15 @@ class Text(Transformable):
                 except:
                     pass
 
-            for ffile in fonts_files:
+            for font_file in fonts_files:
                 try:
-                    font = ttFont.TTFont(ffile)
+                    font = ttFont.TTFont(font_file)
                     name = font["name"].getName(1,1,0).toStr()
                     style = font["name"].getName(2,1,0).toStr()
                     if Text._system_fonts.get(name) is None:
-                        Text._system_fonts[name] = {style:ffile}
+                        Text._system_fonts[name] = {style:font_file}
                     elif Text._system_fonts[name].get(style) is None:
-                        Text._system_fonts[name][style] = ffile
+                        Text._system_fonts[name][style] = font_file
                 except:
                     pass
             logger.debug(f"  Found {len(Text._system_fonts.keys())} fonts in system")

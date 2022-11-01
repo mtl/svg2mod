@@ -1237,11 +1237,11 @@ class Svg2ModExportPretty( Svg2ModExport ):
                 self.output_file.write('''\n    (primitives\n      (gr_poly (pts \n''')
                 self._special_footer = "      )\n    (width {}){{2}})\n  ))".format(stroke_width)
 
-                originx = points[0].x
-                originy = points[0].y
+                origin_x = points[0].x
+                origin_y = points[0].y
                 for point in points:
-                    point.x = point.x-originx
-                    point.y = point.y-originy
+                    point.x = point.x-origin_x
+                    point.y = point.y-origin_y
             else:
                 for point in points[:]:
                     points.remove(point)
