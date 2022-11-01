@@ -75,6 +75,7 @@ class Transformable:
         # a 'Transformable' is represented as a list of Transformable items
         self.items = []
         self.id = hex(id(self))
+        self.name = ""
         # Unit transformation matrix on init
         self.matrix = Matrix()
         self.scalex = 1
@@ -84,6 +85,19 @@ class Transformable:
         self.viewport = Point(800, 600) # default viewport is 800x600
         if elt is not None:
             self.id = elt.get('id', self.id)
+
+            # get inkscape:label as self.name
+            for ident, value in elt.attrib.items():
+
+                ident = self.parse_name( ident )
+                if ident[ "name" ] == "label":
+                    self.name = value
+                    break
+            # self.name isn't set so try setting name to id
+            if self.name == '':
+                self.name == self.id
+
+            
 
             # parse styles and save as dictionary.
             if elt.get('style'):
@@ -107,6 +121,15 @@ class Transformable:
 
         if self.style.get("display") == "none":
             self.hidden = True
+
+    @staticmethod
+    def parse_name( tag ):
+        '''Read and return name from xml data'''
+        m = re.match( r'({(.+)})?(.+)', tag )
+        return {
+            'namespace' : m.group( 2 ),
+            'name' : m.group( 3 ),
+        }
 
     def bbox(self):
         '''Bounding box of all points'''
@@ -330,23 +353,6 @@ class Group(Transformable):
 
     def __init__(self, elt=None, *args, **kwargs):
         Transformable.__init__(self, elt, *args, **kwargs)
-
-        self.name = ""
-        if elt is not None:
-            for ident, value in elt.attrib.items():
-
-                ident = self.parse_name( ident )
-                if ident[ "name" ] == "label":
-                    self.name = value
-
-    @staticmethod
-    def parse_name( tag ):
-        '''Read and return name from xml data'''
-        m = re.match( r'({(.+)})?(.+)', tag )
-        return {
-            'namespace' : m.group( 2 ),
-            'name' : m.group( 3 ),
-        }
 
     def append(self, element):
         '''Convert and append xml element(s) to items list
@@ -623,6 +629,55 @@ class Path(Transformable):
             ret.append(simplify_segment(seg, precision))
 
         return ret
+
+class Polygon(Transformable):
+    '''SVG <polygon> tag handler
+    A polygon has a space separated list of points in format x,y.
+
+    Additionally, polygons can have a style of `file-rule: evenodd;`
+    which allows intersections to cause the polygon to have holes.
+    '''
+
+    # class Polygon handles the <polygon> tag
+    tag = 'polygon'
+
+    def __init__(self, elt, *args, **kwargs):
+        self.path_len = -1
+        Transformable.__init__(self, elt, *args, **kwargs)
+        if elt is not None:
+            if elt.get('pathLength'):
+                self.path_len = int(elt.get('pathLength'))
+            self.parse(elt.get('points'))
+        logger.warning("Polygons are partially supported and may not give expected results.")
+
+    def parse(self, point_str):
+        start_pt = None
+        current_pt = None
+
+        for pair in point_str.split(' '):
+            if pair:
+                start_pt = current_pt
+                current_pt = Point(*pair.split(','))
+
+                if start_pt and current_pt:
+                    self.items.append(Segment(start_pt, current_pt))
+
+    def __str__(self):
+        return ' '.join(str(x) for x in self.items)
+
+    def __repr__(self) -> str:
+        return '<Polygon ' + self.id + '>'
+
+    def segments(self, precision=0) -> List[Segment]:
+        '''Simplify segments if evenodd then cutout holes'''
+        seg = [x.segments(precision) for x in self.items]
+
+        return [list(itertools.chain.from_iterable(seg))]
+
+    def simplify(self, precision:float) -> List[Segment]:
+        '''Simplify segments if evenodd then cutout holes:
+           Remove any point which are ~aligned'''
+        return [simplify_segment(self.segments()[0], precision)]
 
 class Ellipse(Transformable):
     '''SVG <ellipse> tag handler
