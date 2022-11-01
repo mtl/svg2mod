@@ -720,7 +720,12 @@ class Ellipse(Transformable):
         While there may be better ways of computing this
         it is much easier to compute the bounding box of segments.
         '''
+        if self.arc:
+            return Transformable.bbox(self)
+        
         points = self.segments((self.rx+self.ry) / 8)
+        points = list(itertools.chain.from_iterable(points))
+
         xmin = min([p.x for p in points])
         xmax = max([p.x for p in points])
         ymin = min([p.y for p in points])
