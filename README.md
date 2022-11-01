@@ -108,8 +108,9 @@ resize the resulting module(s) up or down from there.
 * Groups may be used. Styles applied to groups (e.g., stroke-width) are applied to contained drawing
   elements.
 
-* Layers must be named to match the target in kicad. The supported layers are listed below. They will
-  be ignored otherwise.
+* Layers or items must be named to match the target in kicad. The supported layers are listed below.
+  They will be ignored otherwise.
+  * These are pulled from `inkscape:label` but will pull from `id` if the label isn't set.
 
 * __If there is an issue parsing an inkscape object or stroke convert it to a path.__
   * __Use Inkscape's "Path->Object To Path" and "Path->Stroke To Path" menu options to convert these__

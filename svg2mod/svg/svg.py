@@ -308,15 +308,15 @@ class Svg(Transformable):
 
             # If the document somehow doesn't have dimensions get if from viewBox
             if self.root.get('width') is None or self.root.get('height') is None:
-                width = float(view_box[2])
-                height = float(view_box[3])
-                logger.warning("Unable to find width or height properties. Using viewBox.")
+                width = float(view_box[2]) - float(view_box[0])
+                height = float(view_box[3]) - float(view_box[1])
+                logger.debug("Unable to find width or height properties. Using viewBox.")
 
-            sx = width / float(view_box[2])
-            sy = height / float(view_box[3])
+            sx = width / (float(view_box[2]) - float(view_box[0]))
+            sy = height / (float(view_box[3]) - float(view_box[1]))
             tx = -float(view_box[0])
             ty = -float(view_box[1])
-            self.viewport_scale = round(float(view_box[2])/width, 6)
+            self.viewport_scale = round((float(view_box[2]) - float(view_box[0]))/width, 6)
             top_group.matrix = Matrix([sx, 0, 0, sy, tx, ty])
         if ( self.root.get("width") is None or self.root.get("height") is None ) \
                 and self.root.get("viewBox") is None:
@@ -714,11 +714,19 @@ class Ellipse(Transformable):
         return '<Ellipse ' + self.id + '>'
 
     def bbox(self) -> Tuple[Point, Point]:
-        '''Bounding box'''
-        #TODO change bounding box dependent on rotation
-        pmin = self.center - Point(self.rx, self.ry)
-        pmax = self.center + Point(self.rx, self.ry)
-        return (pmin, pmax)
+        '''Approximate the bounding box for the given ellipse by
+        decomposing the ellipse into a small number of segments.
+
+        While there may be better ways of computing this
+        it is much easier to compute the bounding box of segments.
+        '''
+        points = self.segments((self.rx+self.ry) / 8)
+        xmin = min([p.x for p in points])
+        xmax = max([p.x for p in points])
+        ymin = min([p.y for p in points])
+        ymax = max([p.y for p in points])
+
+        return (Point(xmin,ymin),Point(xmax,ymax))
 
     def transform(self, matrix=None):
         '''Apply the provided matrix. Default (None)
