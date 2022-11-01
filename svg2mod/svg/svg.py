@@ -31,7 +31,7 @@ import platform
 import re
 import sys
 import xml.etree.ElementTree as etree
-from typing import List, Tuple
+from typing import Iterable, List, Tuple
 
 from fontTools.misc import loggingTools
 from fontTools.pens.svgPathPen import SVGPathPen
@@ -724,7 +724,8 @@ class Ellipse(Transformable):
             return Transformable.bbox(self)
 
         points = self.segments((self.rx+self.ry) / 8)
-        points = list(itertools.chain.from_iterable(points))
+        if isinstance(points[0], Iterable):
+            points = list(itertools.chain.from_iterable(points))
 
         xmin = min([p.x for p in points])
         xmax = max([p.x for p in points])
