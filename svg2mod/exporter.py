@@ -227,8 +227,6 @@ class Svg2ModExport(ABC):
 
         for item in items:
 
-            # if not isinstance( item, svg.Group ):
-            #     continue
             if not hasattr(item, 'name'):
                 continue
 

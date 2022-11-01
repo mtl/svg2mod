@@ -249,7 +249,7 @@ class PolygonSegment:
             # The same point can be present multiple times without being part of the
             # desired segment. The points are also not next to each other.
             while (
-               (p_cnt > 1 or q_cnt > 1) and 
+               (p_cnt > 1 or q_cnt > 1) and
                (p + 1)%best_len != q and
                (p - 1)%best_len != q
             ):

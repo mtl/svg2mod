@@ -97,8 +97,6 @@ class Transformable:
             if self.name == '':
                 self.name == self.id
 
-            
-
             # parse styles and save as dictionary.
             if elt.get('style'):
                 for style in elt.get('style').split(";"):
@@ -651,16 +649,18 @@ class Polygon(Transformable):
         logger.warning("Polygons are partially supported and may not give expected results.")
 
     def parse(self, point_str):
+        '''Split the points from point_str and create a list of segments'''
         start_pt = None
         current_pt = None
 
-        for pair in point_str.split(' '):
-            if pair:
-                start_pt = current_pt
-                current_pt = Point(*pair.split(','))
+        points = re.findall(number_re, point_str)
+        points.reverse()
+        while points:
+            start_pt = current_pt
+            current_pt = Point(points.pop(), points.pop())
 
-                if start_pt and current_pt:
-                    self.items.append(Segment(start_pt, current_pt))
+            if start_pt and current_pt:
+                self.items.append(Segment(start_pt, current_pt))
 
     def __str__(self):
         return ' '.join(str(x) for x in self.items)
