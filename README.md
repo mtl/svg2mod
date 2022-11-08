@@ -7,8 +7,9 @@
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/svg2mod?style=for-the-badge)](https://pypi.org/project/svg2mod/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/svg2mod?style=for-the-badge)](https://pypi.org/project/svg2mod/)
 
-[![GitHub Sponsors](https://img.shields.io/github/sponsors/sodium-hydrogen?logo=github&style=for-the-badge)](https://github.com/sponsors/Sodium-Hydrogen)
 [![PyPI - License](https://img.shields.io/pypi/l/svg2mod?color=purple&style=for-the-badge)](https://pypi.org/project/svg2mod/)
+
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/sodium-hydrogen?logo=github&style=for-the-badge&color=red)](https://github.com/sponsors/Sodium-Hydrogen)
 
 This is a program / library to convert SVG drawings to KiCad footprint module files.
 

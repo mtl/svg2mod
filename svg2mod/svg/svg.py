@@ -46,6 +46,15 @@ svg_ns = '{http://www.w3.org/2000/svg}'
 number_re = r'[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
 unit_re = r'em|ex|px|in|cm|mm|pt|pc|%'
 
+# styles of interest and their defaults
+svg_defaults = {
+        "fill":"black",
+        "fill-opacity":"1",
+        "stroke":"none",
+        "stroke-width":"1px",
+        "stroke-opacity":"1",
+    }
+
 # Unit converter
 unit_convert = {
         None: 1,           # Default unit (same as pixel)
@@ -76,11 +85,12 @@ class Transformable:
         self.items = []
         self.id = hex(id(self))
         self.name = ""
+        self.fill_even_odd = False
         # Unit transformation matrix on init
         self.matrix = Matrix()
         self.xscale = 1
         self.yscale = 1
-        self.style = {} if not parent_styles and not isinstance(parent_styles, dict) else parent_styles.copy()
+        self.style = svg_defaults.copy() if not parent_styles and not isinstance(parent_styles, dict) else parent_styles.copy()
         self.rotation = 0
         self.viewport = Point(800, 600) # default viewport is 800x600
         if elt is not None:
@@ -96,6 +106,15 @@ class Transformable:
             # self.name isn't set so try setting name to id
             if self.name == '':
                 self.name == self.id
+
+            # set fill_even_odd if property set
+            self.fill_even_odd = elt.get("fill-rule", '').lower() == 'evenodd'
+            if self.fill_even_odd:
+                logger.warning(f"Found unsupported attribute: 'fill-rule=evenodd' for {repr(self)}")
+
+            # Find attributes of interest. The are overwritten by styles
+            for style_key in svg_defaults:
+                self.style[style_key] = elt.get(style_key, self.style[style_key])
 
             # parse styles and save as dictionary.
             if elt.get('style'):
@@ -204,10 +223,16 @@ class Transformable:
     def transform_styles(self, matrix):
         '''Any style in this classes transformable_styles
         will be scaled by the provided matrix.
+        If it has a unit type it will convert it to the proper value first.
         '''
         for style in self.transformable_styles:
             if self.style.get(style):
-                self.style[style] = float(self.style[style]) * ((matrix.xscale()+matrix.yscale())/2)
+                has_units = re.search(r'\D', self.style[style] if isinstance(self.style[style], str) else '')
+                if has_units is None:
+                    self.style[style] = float(self.style[style]) * ((matrix.xscale()+matrix.yscale())/2)
+                else:
+                    unit = has_units.group().lower()
+                    self.style[style] = float(re.search(r'\d', self.style[style]).group()) * unit_convert.get(unit, 1) * ((matrix.xscale()+matrix.yscale())/2)
 
 
     def transform(self, matrix=None):
@@ -628,12 +653,9 @@ class Path(Transformable):
 
         return ret
 
-class Polygon(Transformable):
+class Polygon(Path):
     '''SVG <polygon> tag handler
     A polygon has a space separated list of points in format x,y.
-
-    Additionally, polygons can have a style of `file-rule: evenodd;`
-    which allows intersections to cause the polygon to have holes.
     '''
 
     # class Polygon handles the <polygon> tag
@@ -646,7 +668,6 @@ class Polygon(Transformable):
             if elt.get('pathLength'):
                 self.path_len = int(elt.get('pathLength'))
             self.parse(elt.get('points'))
-        logger.warning("Polygons are partially supported and may not give expected results.")
 
     def parse(self, point_str):
         '''Split the points from point_str and create a list of segments'''
@@ -662,22 +683,16 @@ class Polygon(Transformable):
             if start_pt and current_pt:
                 self.items.append(Segment(start_pt, current_pt))
 
-    def __str__(self):
-        return ' '.join(str(x) for x in self.items)
-
     def __repr__(self) -> str:
         return '<Polygon ' + self.id + '>'
 
     def segments(self, precision=0) -> List[Segment]:
-        '''Simplify segments if evenodd then cutout holes'''
+        ''' Return list of segments '''
+
         seg = [x.segments(precision) for x in self.items]
 
         return [list(itertools.chain.from_iterable(seg))]
 
-    def simplify(self, precision:float) -> List[Segment]:
-        '''Simplify segments if evenodd then cutout holes:
-           Remove any point which are ~aligned'''
-        return [simplify_segment(self.segments()[0], precision)]
 
 class Ellipse(Transformable):
     '''SVG <ellipse> tag handler
