@@ -1,4 +1,5 @@
 # Copyright (C) 2013 -- CJlano < cjlano @ free.fr >
+# Copyright (C) 2022 -- svg2mod developers < GitHub.com / svg2mod >
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,6 +25,7 @@ import numbers
 import operator
 
 class Point:
+    '''Define a point as two floats accessible by x and y'''
     def __init__(self, x=None, y=None):
         '''A Point is defined either by a tuple/list of length 2 or
            by 2 coordinates
@@ -64,7 +66,7 @@ class Point:
         return Point(self.x + other.x, self.y + other.y)
 
     def __sub__(self, other):
-        '''Substract two Points.
+        '''Subtract two Points.
         >>> Point(1,2) - Point(3,2)
         (-2.000,0.000)
         '''
@@ -104,7 +106,7 @@ class Point:
         return '(' + format(self.x,'.3f') + ',' + format( self.y,'.3f') + ')'
 
     def __str__(self):
-        return self.__repr__();
+        return self.__repr__()
 
     def coord(self):
         '''Return the point tuple (x,y)'''
@@ -114,14 +116,21 @@ class Point:
         '''Vector length, Pythagoras theorem'''
         return math.sqrt(self.x ** 2 + self.y ** 2)
 
-    def rot(self, angle):
+    def rot(self, angle, x=0, y=0):
         '''Rotate vector [Origin,self] '''
         if not isinstance(angle, Angle):
             try: angle = Angle(angle)
             except: return NotImplemented
-        x = self.x * angle.cos - self.y * angle.sin
-        y = self.x * angle.sin + self.y * angle.cos
-        return Point(x,y)
+        if angle.angle % (2 * math.pi) == 0:
+            return Point(self.x,self.y)
+
+        new_x = ((self.x-x) * angle.cos) - ((self.y-y) * angle.sin) + x
+        new_y = ((self.x-x) * angle.sin) + ((self.y-y) * angle.cos) + y
+        return Point(new_x,new_y)
+
+    def round(self, num_digits=None):
+        '''Round x and y to number of decimal points'''
+        return Point( round(self.x, num_digits), round(self.y, num_digits))
 
 
 class Angle:
@@ -150,6 +159,11 @@ class Angle:
 
     def __neg__(self):
         return Angle(Point(self.cos, -self.sin))
+    def __add__(self, other):
+        if not isinstance(other, Angle):
+            try: other = Angle(other)
+            except: return NotImplemented
+        return Angle(self.angle+other.angle)
 
 class Segment:
     '''A segment is an object defined by 2 points'''
@@ -160,7 +174,7 @@ class Segment:
     def __str__(self):
         return 'Segment from ' + str(self.start) + ' to ' + str(self.end)
 
-    def segments(self, precision=0):
+    def segments(self, __=0):
         ''' Segments is simply the segment start -> end'''
         return [self.start, self.end]
 
@@ -182,15 +196,15 @@ class Segment:
         if s.x == 0:
         # Vertical Segment => pdistance is the difference of abscissa
             return abs(self.start.x - p.x)
-        else:
-        # That's 2-D perpendicular distance formulae (ref: Wikipedia)
-            slope = s.y/s.x
-            # intercept: Crossing with ordinate y-axis
-            intercept = self.start.y - (slope * self.start.x)
-            return abs(slope * p.x - p.y + intercept) / math.sqrt(slope ** 2 + 1)
+        # That's 2-D perpendicular distance formula (ref: Wikipedia)
+        slope = s.y/s.x
+        # intercept: Crossing with ordinate y-axis
+        intercept = self.start.y - (slope * self.start.x)
+        return abs(slope * p.x - p.y + intercept) / math.sqrt(slope ** 2 + 1)
 
 
     def bbox(self):
+        '''Return bounding box as ( Point(min), Point(max )'''
         xmin = min(self.start.x, self.end.x)
         xmax = max(self.start.x, self.end.x)
         ymin = min(self.start.y, self.end.y)
@@ -199,18 +213,9 @@ class Segment:
         return (Point(xmin,ymin),Point(xmax,ymax))
 
     def transform(self, matrix):
+        '''Transform start and end point by provided matrix'''
         self.start = matrix * self.start
         self.end = matrix * self.end
-
-    def scale(self, ratio):
-        self.start *= ratio
-        self.end *= ratio
-    def translate(self, offset):
-        self.start += offset
-        self.end += offset
-    def rotate(self, angle):
-        self.start = self.start.rot(angle)
-        self.end = self.end.rot(angle)
 
 class Bezier:
     '''Bezier curve class
@@ -227,12 +232,12 @@ class Bezier:
                 ' : ' + ", ".join([str(x) for x in self.pts])
 
     def control_point(self, n):
+        '''Return Point at index n'''
         if n >= self.dimension:
             raise LookupError('Index is larger than Bezier curve dimension')
-        else:
-            return self.pts[n]
+        return self.pts[n]
 
-    def rlength(self):
+    def r_length(self):
         '''Rough Bezier length: length of control point segments'''
         pts = list(self.pts)
         l = 0.0
@@ -244,9 +249,10 @@ class Bezier:
         return l
 
     def bbox(self):
-        return self.rbbox()
+        '''This returns the rough bounding box '''
+        return self.r_bbox()
 
-    def rbbox(self):
+    def r_bbox(self):
         '''Rough bounding box: return the bounding box (P1,P2) of the Bezier
         _control_ points'''
         xmin = min([p.x for p in self.pts])
@@ -257,12 +263,12 @@ class Bezier:
         return (Point(xmin,ymin), Point(xmax,ymax))
 
     def segments(self, precision=0):
-        '''Return a polyline approximation ("segments") of the Bezier curve
-           precision is the minimum significative length of a segment'''
+        '''Return a poly-line approximation ("segments") of the Bezier curve
+           precision is the minimum significant length of a segment'''
         segments = []
         # n is the number of Bezier points to draw according to precision
         if precision != 0:
-            n = int(self.rlength() / precision) + 1
+            n = int(self.r_length() / precision) + 1
         else:
             n = 1000
         #if n < 10: n = 10
@@ -272,7 +278,8 @@ class Bezier:
             segments.append(self._bezierN(float(t)/n))
         return segments
 
-    def _bezier1(self, p0, p1, t):
+    @staticmethod
+    def _bezier1(p0, p1, t):
         '''Bezier curve, one dimension
         Compute the Point corresponding to a linear Bezier curve between
         p0 and p1 at "time" t '''
@@ -291,35 +298,28 @@ class Bezier:
             # For each control point of nth dimension,
             # compute linear Bezier point a t
             for i in range(0,n-1):
-                res[i] = self._bezier1(res[i], res[i+1], t)
+                res[i] = Bezier._bezier1(res[i], res[i+1], t)
         return res[0]
 
     def transform(self, matrix):
+        '''Transform every point by the provided matrix'''
         self.pts = [matrix * x for x in self.pts]
 
-    def scale(self, ratio):
-        self.pts = [x * ratio for x in self.pts]
-    def translate(self, offset):
-        self.pts = [x + offset for x in self.pts]
-    def rotate(self, angle):
-        self.pts = [x.rot(angle) for x in self.pts]
-
 class MoveTo:
+    '''MoveTo class
+    This will create a move without creating a segment
+    to the destination point.
+    '''
     def __init__(self, dest):
         self.dest = dest
 
     def bbox(self):
+        '''This returns a single point bounding box. ( Point(destination), Point(destination) )'''
         return (self.dest, self.dest)
 
     def transform(self, matrix):
+        '''Transform the destination point by provided matrix'''
         self.dest = matrix * self.dest
-
-    def scale(self, ratio):
-        self.dest *= ratio
-    def translate(self, offset):
-        self.dest += offset
-    def rotate(self, angle):
-        self.dest = self.dest.rot(angle)
 
 
 def simplify_segment(segment, epsilon):
@@ -334,10 +334,9 @@ def simplify_segment(segment, epsilon):
             key=operator.itemgetter(1))
 
     if maxDist > epsilon:
-        # Recursively call with segment splited in 2 on its furthest point
+        # Recursively call with segment split in 2 on its furthest point
         r1 = simplify_segment(segment[:index+1], epsilon)
         r2 = simplify_segment(segment[index:], epsilon)
         # Remove redundant 'middle' Point
         return r1[:-1] + r2
-    else:
-        return [segment[0], segment[-1]]
+    return [segment[0], segment[-1]]
